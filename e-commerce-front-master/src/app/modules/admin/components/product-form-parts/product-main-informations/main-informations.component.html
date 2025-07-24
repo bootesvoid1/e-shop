@@ -1,0 +1,101 @@
+<form [formGroup]="formGroup" class="grid grid-col-2 gap-6">
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Product Title
+    </label>
+    <input
+      type="text"
+      formControlName="name"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. Google Pixel 7 Pro"
+    />
+  </div>
+
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Display Title
+    </label>
+    <input
+      type="text"
+      formControlName="displayTitle"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. Google Pixel 7 Pro"
+    />
+  </div>
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[5px] text-black dark:text-white font-medium block">
+      Product Type
+    </label>
+    <ng-select
+      [items]="status"
+      bindLabel=""
+      appearance="outline"
+      bindValue=""
+      formControlName="status"
+    >
+    </ng-select>
+  </div>
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      SKU
+    </label>
+    <input
+      formControlName="SKU"
+      type="text"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. ABC-12345"
+    />
+  </div>
+  <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Product Description
+    </label>
+    <div class="NgxEditor__Wrapper">
+      <ng-container *ngIf="editor">
+        <ngx-editor-menu
+          [editor]="editor"
+          [toolbar]="toolbar"
+        ></ngx-editor-menu>
+        <ngx-editor
+          [editor]="editor"
+          formControlName="description"
+        ></ngx-editor>
+      </ng-container>
+    </div>
+  </div>
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Price
+    </label>
+    <input
+      formControlName="price"
+      type="number"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. $99"
+    />
+  </div>
+
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Product in Stock
+    </label>
+    <input
+      formControlName="stock"
+      type="number"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. $17"
+    />
+  </div>
+
+  <div class="mb-[20px] sm:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Discount / Offer
+    </label>
+    <input
+      formControlName="discount"
+      type="number"
+      class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+      placeholder="E.g. $20"
+    />
+  </div>
+</form>

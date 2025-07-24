@@ -1,0 +1,83 @@
+<div class="flex gap-3 items-center">
+  <ng-container
+    *ngIf="
+      selectedPrice.discount && selectedPrice.discount > 0;
+      else noDiscount
+    "
+  >
+    <span class="text-lg font-bold text-black dark:text-white">
+      ${{
+        selectedPrice.price -
+          (selectedPrice.price * selectedPrice.discount) / 100
+          | number : "1.2-2"
+      }}
+    </span>
+    <span class="text-md ltr:ml-[7px] rtl:mr-[7px] line-through">
+      ${{ selectedPrice.price | number : "1.2-2" }}
+    </span>
+    <span
+      class="inline-block px-[10px] py-[.2em] text-white border border-success-500 bg-success-500 text-xs rounded-[100px]"
+    >
+      {{ selectedPrice.discount }} %
+    </span>
+  </ng-container>
+
+  <ng-template #noDiscount>
+    <span class="text-lg font-bold text-black dark:text-white">
+      ${{ selectedPrice.price | number : "1.2-2" }}
+    </span>
+  </ng-template>
+</div>
+
+<div class="mt-[20px] flex flex-col gap-6">
+  @for (item of variants; track item.id) {
+  <div>
+    <div class="flex items-center mb-2">
+      <span> {{ item.variant.label }}: </span>
+      <span
+        class="font-medium text-black dark:text-white ltr:ml-[3px] rtl:mr-[3px]"
+      >
+        {{ selectedValues[item.variant.id]?.label || "—" }}
+      </span>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      @for (value of item.variant.values; track value.id) {
+      <button
+        type="button"
+        (click)="selectValue(item.variant.name, value.label)"
+        [ngClass]="{
+          'border-orange-400 text-black dark:text-white font-semibold':
+            selectedValues[item.variant.id]?.id === value.id,
+          'border-gray-100 dark:border-[#172036]':
+            selectedValues[item.variant.id]?.id !== value.id
+        }"
+        class="inline-block text-xs py-[4px] px-[15px] rounded-[4px] border"
+      >
+        {{ value.label }}
+      </button>
+      }
+    </div>
+  </div>
+  }
+</div>
+
+<div class="mt-[15px]">
+  <div class="flex items-center">
+    <span> Color: </span>
+    <span
+      class="font-medium text-black dark:text-white ltr:ml-[3px] rtl:mr-[3px]"
+    >
+      Silver
+    </span>
+  </div>
+  <div class="mt-[6px]">
+    <button
+      type="button"
+      class="inline-block ltr:mr-[10px] rtl:ml-[10px] rounded-full w-[29px] h-[29px] bg-gray-100 border border-orange-400"
+    ></button>
+    <button
+      type="button"
+      class="inline-block ltr:mr-[10px] rtl:ml-[10px] rounded-full w-[29px] h-[29px] bg-gray-200 border border-gray-200"
+    ></button>
+  </div>
+</div>

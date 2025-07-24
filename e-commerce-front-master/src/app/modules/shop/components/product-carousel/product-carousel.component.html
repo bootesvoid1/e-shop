@@ -1,0 +1,31 @@
+<div class="lg:ltr:mr-[30px] lg:rtl:ml-[30px]">
+  <owl-carousel-o
+    [options]="{
+      items: 1,
+      dots: false,
+      animateIn: 'fadeIn',
+      animateOut: 'fadeOut'
+    }"
+    #owlCar
+  >
+    <ng-container *ngFor="let image of productImages">
+      <ng-template carouselSlide [id]="image.url">
+        <img [src]="image.url" [alt]="image.url" class="rounded-md" />
+      </ng-template>
+    </ng-container>
+  </owl-carousel-o>
+  <div class="mt-[20px] md:mt-[25px]">
+    <owl-carousel-o [options]="{ items: 3, dots: false, margin: 25 }">
+      <ng-container *ngFor="let image of productImages; let i = index">
+        <ng-template carouselSlide [id]="image.url + i" [width]="130">
+          <a
+            (click)="owlCar.to(image.url); changeImage(image.url + i)"
+            class="rounded-md cursor-pointer"
+          >
+            <img [src]="image.url" [alt]="image.url" class="rounded-md" />
+          </a>
+        </ng-template>
+      </ng-container>
+    </owl-carousel-o>
+  </div>
+</div>

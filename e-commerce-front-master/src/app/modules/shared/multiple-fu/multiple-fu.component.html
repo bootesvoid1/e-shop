@@ -1,0 +1,62 @@
+<form
+  class="flex flex-col w-full text-left rounded bg-background text-foreground"
+>
+  <h1 class="py-4 text-lg font-semibold">Télécharger un fichier ou image</h1>
+
+  <label
+    class="flex flex-col justify-center items-center px-3 py-5 my-2 font-semibold rounded border border-dashed cursor-pointer hover:border-primary"
+    [for]="uniqueId"
+    (dragover)="handleDragOver($event)"
+    (drop)="handleDrop($event)"
+  >
+    <i class="py-1 text-lg ph ph-upload text-primary"></i>
+
+    <span
+      class="flex justify-center items-center text-sm"
+      style="word-break: break-all"
+    >
+      Drag & drop or
+      <span
+        class="mx-[2px] inline-block text-primary"
+        style="word-break: break-all"
+        >parcourir</span
+      >
+      vos fichiers
+    </span>
+  </label>
+
+  <input
+    [accept]="acceptedFileType"
+    class="hidden"
+    [id]="uniqueId"
+    type="file"
+    [name]="uniqueId"
+    (change)="onFileSelected($event, null)"
+  />
+
+  <div
+    class="flex gap-2 p-2 text-xs rounded"
+    [style.display]="outputBoxVisible ? 'flex' : 'none'"
+  >
+    <i class="text-2xl ph ph-file"></i>
+    <div class="flex flex-col flex-1 gap-1 justify-center items-start">
+      <span class="block font-semibold">{{ fileName }}</span>
+      <ng-container *ngIf="uploadStatus === 200 || uploadStatus === undefined">
+        <span class="block text-primary">{{ fileSize }}</span>
+      </ng-container>
+    </div>
+
+    <div class="flex gap-1 justify-end items-center">
+      <span class="block">{{ uploadResult }}</span>
+      <ng-container *ngIf="uploadStatus === 200">
+        <i class="text-base text-emerald-600 ph ph-check-circle"></i>
+      </ng-container>
+      <ng-template *ngIf="uploadStatus === 400">
+        <i class="text-base text-red-600 ph ph-x-circle"></i>
+      </ng-template>
+      <ng-template *ngIf="uploadStatus === undefined">
+        <i class="text-base ph ph-circle-notch"></i>
+      </ng-template>
+    </div>
+  </div>
+</form>

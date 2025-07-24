@@ -1,0 +1,222 @@
+<!-- Breadcrumb -->
+<app-breadcrumb
+  [pageTitle]="pageTitle"
+  [breadcrumb]="breadcrumb"
+></app-breadcrumb>
+
+<!-- Cart -->
+<div class="lg:grid lg:grid-cols-3 gap-[25px]">
+  <div class="lg:col-span-2">
+    <div
+      class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+    >
+      <div
+        class="trezo-card-header mb-[20px] md:mb-[25px] sm:flex items-center justify-between"
+      >
+        <div class="trezo-card-title">
+          <h5 class="mb-0">Your Order</h5>
+        </div>
+        <div class="trezo-card-subtitle mt-[15px] sm:mt-0">
+          <h5 class="mb-0">Customer ID : 357951</h5>
+        </div>
+      </div>
+      <div class="trezo-card-content">
+        <div class="overflow-x-auto table-responsive">
+          <table class="w-full">
+            <thead class="text-black dark:text-white">
+              <tr>
+                @for (item of colsName; track $index) {
+
+                <th
+                  class="font-medium ltr:text-left rtl:text-right px-[20px] py-[11px] bg-gray-50 dark:bg-[#15203c] whitespace-nowrap first:rounded-tl-md"
+                >
+                  {{ item }}
+                </th>
+
+                }
+              </tr>
+            </thead>
+            <tbody class="text-black dark:text-white">
+              @for (item of cart.items; track $index) {
+              <tr>
+                <td
+                  class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  <div class="flex items-center">
+                    <div class="rounded-md w-[40px]">
+                      <img
+                        [src]="
+                          item && item.product.document?.length
+                            ? item.product.document[0].url
+                            : 'images/products/product1.jpg'
+                        "
+                        class="inline-block rounded-md"
+                        alt="product-image"
+                      />
+                    </div>
+                    <div class="ltr:ml-[12px] rtl:mr-[12px]">
+                      <a
+                        routerLink="/dashboard/ecommerce-page/product-details"
+                        class="block font-medium md:text-[15px] transition-all hover:text-primary-500"
+                      >
+                        {{
+                          item.product.displayTitle
+                            ? item.product.displayTitle
+                            : item.product.name
+                        }}
+                      </a>
+                    </div>
+                  </div>
+                </td>
+                <td
+                  class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  <app-quantity-counter [initialValue]="item.quantity" />
+                </td>
+                <td
+                  class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{
+                    item.product?.discount
+                      ? item.price - (item.price * item.product.discount) / 100
+                      : (item.price | number : "1.2-2")
+                  }}
+                  $
+                </td>
+
+                <td
+                  class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{
+                    (item.product?.discount
+                      ? item.price - (item.price * item.product.discount) / 100
+                      : item.price) * item.quantity | number : "1.2-2"
+                  }}
+                  $
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="lg:col-span-1">
+    <div
+      class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+    >
+      <div
+        class="trezo-card-header mb-[20px] md:mb-[25px] sm:flex items-center justify-between"
+      >
+        <div class="trezo-card-title">
+          <h5 class="mb-0">Order Summary</h5>
+        </div>
+      </div>
+      <div class="trezo-card-content">
+        <div class="overflow-x-auto table-responsive">
+          <table class="w-full">
+            <thead class="text-black dark:text-white">
+              <tr>
+                <th
+                  class="font-medium ltr:text-left rtl:text-right px-[20px] py-[11px] bg-gray-50 dark:bg-[#15203c] whitespace-nowrap first:rounded-tl-md"
+                >
+                  Description
+                </th>
+                <th
+                  class="font-medium ltr:text-right rtl:text-left px-[20px] py-[11px] bg-gray-50 dark:bg-[#15203c] whitespace-nowrap first:rounded-tl-md"
+                >
+                  Price
+                </th>
+              </tr>
+            </thead>
+            <tbody class="text-black dark:text-white">
+              <tr>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  Grand Total :
+                </td>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-right rtl:text-left whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{ getPriceWithoutDiscount() }} $
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  Discount :
+                </td>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-right rtl:text-left whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{ getTotalDiscountAmount() | number : "1.2-2" }} $
+                </td>
+              </tr>
+
+              <tr>
+                <td
+                  class="font-medium ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  Subtotal :
+                </td>
+                <td
+                  class="font-medium ltr:text-right rtl:text-left whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{ getSubtotal() }}
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  Tax :
+                </td>
+                <td
+                  class="text-gray-500 dark:text-gray-400 ltr:text-right rtl:text-left whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{ getTax() }} $
+                </td>
+              </tr>
+
+              <tr>
+                <td
+                  class="font-medium ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  Total :
+                </td>
+                <td
+                  class="font-medium ltr:text-right rtl:text-left whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+                >
+                  {{ getTotal() }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h6 class="mt-[20px] md:mt-[25px] mb-[10px]">Add A Note</h6>
+        <form>
+          <textarea
+            class="h-[140px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] p-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="It makes me feel..."
+          ></textarea>
+          <button
+            type="button"
+            class="mt-[20px] md:mt-[25px] font-medium inline-block transition-all rounded-md md:text-md py-[10px] md:py-[12px] px-[20px] md:px-[22px] bg-primary-500 text-white hover:bg-primary-400"
+          >
+            <span class="inline-block relative ltr:pl-[29px] rtl:pr-[29px]">
+              <i
+                class="absolute top-1/2 -translate-y-1/2 material-symbols-outlined ltr:left-0 rtl:right-0"
+              >
+                add
+              </i>
+              Proceed To Shipping
+            </span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

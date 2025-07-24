@@ -1,0 +1,70 @@
+<div
+  [ngClass]="{
+    'px-[20px] py-[12px] md:py-[14px] rounded-b-md border-l border-r border-b border-gray-100 dark:border-[#172036] sm:flex sm:items-center justify-between':
+      variant === 'table',
+    'trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md':
+      variant === 'grid'
+  }"
+>
+  <div
+    [ngClass]="{
+      'trezo-card-content': variant === 'grid'
+    }"
+  >
+    <div
+      [ngClass]="{
+        'justify-between sm:flex sm:items-center': true
+      }"
+    >
+      <p class="mb-0 text-sm">
+        Showing {{ currentDataLength }} of {{ totalItems }} results
+      </p>
+
+      <ol class="mt-[10px] sm:mt-0 flex flex-wrap">
+        <!-- Previous -->
+        <li class="mx-[3px]">
+          <button
+            [disabled]="page === 1"
+            (click)="goToPage(page - 1)"
+            class="w-[31px] h-[31px] block leading-[29px] text-center rounded-md border border-gray-100 dark:border-[#172036] transition-all hover:bg-primary-500 hover:text-white hover:border-primary-500"
+          >
+            <i class="material-symbols-outlined">chevron_left</i>
+          </button>
+        </li>
+
+        <!-- Pages -->
+        <li
+          *ngFor="
+            let p of pages.length ? pages : [].constructor(totalPages);
+            let i = index
+          "
+          class="mx-[3px]"
+        >
+          <button
+            (click)="goToPage(pages.length ? p : i + 1)"
+            [ngClass]="{
+              'border-primary-500 bg-primary-500 text-white':
+                (pages.length ? p : i + 1) === page,
+              'border-gray-100 dark:border-[#172036] hover:bg-primary-500 hover:text-white hover:border-primary-500':
+                (pages.length ? p : i + 1) !== page
+            }"
+            class="w-[31px] h-[31px] block leading-[29px] text-center rounded-md border transition-all"
+          >
+            {{ pages.length ? p : i + 1 }}
+          </button>
+        </li>
+
+        <!-- Next -->
+        <li class="mx-[3px]">
+          <button
+            [disabled]="page === totalPages"
+            (click)="goToPage(page + 1)"
+            class="w-[31px] h-[31px] block leading-[29px] text-center rounded-md border border-gray-100 dark:border-[#172036] transition-all hover:bg-primary-500 hover:text-white hover:border-primary-500"
+          >
+            <i class="material-symbols-outlined">chevron_right</i>
+          </button>
+        </li>
+      </ol>
+    </div>
+  </div>
+</div>

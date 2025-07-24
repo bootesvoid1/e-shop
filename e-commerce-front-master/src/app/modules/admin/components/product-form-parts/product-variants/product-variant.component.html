@@ -1,0 +1,410 @@
+<div class="mb-[25px] w-full col-span-full" [formGroup]="formGroup">
+  <div class="trezo-card bg-white dark:bg-[#0c1427] rounded-md">
+    <div class="trezo-card-content">
+      <div class="toc-accordion" id="tablesOfContentAccordion">
+        <div
+          class="toc-accordion-item bg-gray-50 dark:bg-[#15203c] rounded-md text-black dark:text-white mb-[15px] last:mb-0"
+        >
+          <button
+            class="toc-accordion-button open text-base md:text-[15px] lg:text-md py-[13px] px-[20px] md:px-[25px] block w-full ltr:text-left rtl:text-right font-medium relative"
+            type="button"
+            (click)="toggleSection(0)"
+            [ngClass]="{ open: isSectionOpen(0) }"
+          >
+            Variants
+            <i
+              class="ri-arrow-down-s-line absolute top-1/2 -translate-y-1/2 ltr:right-[20px] rtl:left-[20px] md:ltr:right-[25px] md:rtl:left-[25px] text-[20px]"
+            ></i>
+          </button>
+          <div
+            class="toc-accordion-collapse px-[20px] md:px-[25px] pb-[20px]"
+            [ngClass]="{ open: isSectionOpen(0) }"
+            formArrayName="variants"
+          >
+            <div
+              *ngFor="let variant of variants.controls; let i = index"
+              [formGroupName]="i"
+              class="border border-gray-100 dark:border-[#172036] mb-[15px] rounded-md p-[20px] flex flex-col gap-3"
+            >
+              <div
+                class="flex justify-between items-center mb-2 border-b border-gray-100 dark:border-[#172036] py-3"
+              >
+                <h6 class="text-sm font-semibold text-black dark:text-white">
+                  Variant {{ i + 1 }}
+                </h6>
+
+                <button
+                  (click)="removeVariant(i)"
+                  type="button"
+                  class="bg-danger-500 text-white rounded-md px-3 py-3 transition-all hover:bg-danger-400 flex"
+                >
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-[15px]">
+                <input
+                  type="text"
+                  formControlName="name"
+                  placeholder="Variant name (e.g. size)"
+                  class="h-[45px] px-3 border rounded-md dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                />
+                <input
+                  type="text"
+                  formControlName="label"
+                  placeholder="Variant label (e.g. Size)"
+                  class="h-[45px] px-3 border rounded-md dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                />
+                <div class="mb-[20px] sm:mb-0">
+                  <label
+                    class="mb-[10px] text-black dark:text-white font-medium block"
+                  >
+                    Type
+                  </label>
+                  <ng-select
+                    [clearable]="false"
+                    [items]="variantTypes"
+                    bindLabel=""
+                    appearance="outline"
+                    bindValue=""
+                    formControlName="type"
+                  >
+                  </ng-select>
+                </div>
+              </div>
+
+              <div formArrayName="values" class="mt-4 flex flex-col gap-4">
+                <label class="block mb-2 text-sm text-black dark:text-white">
+                  Values
+                </label>
+                <div
+                  *ngFor="
+                    let value of getVariantValuesControls(i);
+                    let j = index
+                  "
+                  [formGroupName]="j"
+                  class="flex items-center mb-2"
+                >
+                  <ng-container
+                    *ngIf="
+                      variants.at(i).get('type')?.value === 'color';
+                      else textInput
+                    "
+                  >
+                    <input
+                      type="color"
+                      formControlName="label"
+                      class="h-[40px] w-[60px] rounded-md border border-gray-200 dark:border-[#172036] cursor-pointer"
+                    />
+                  </ng-container>
+                  <ng-template #textInput>
+                    <input
+                      type="text"
+                      formControlName="label"
+                      placeholder="Value (e.g. L, XL)"
+                      class="h-[40px] px-3 border rounded-md flex-1 dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                    />
+                  </ng-template>
+
+                  <button
+                    type="button"
+                    class="ml-2 text-xs text-red-500"
+                    (click)="removeValue(i, j)"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <app-icon-button
+                  [label]="'Add Value'"
+                  [icon]="'ri-add-line'"
+                  (clickEmitter)="addValue(i)"
+                ></app-icon-button>
+              </div>
+            </div>
+
+            <app-icon-button
+              [label]="'Add Variant'"
+              [icon]="'ri-add-line'"
+              (clickEmitter)="addVariant()"
+            ></app-icon-button>
+          </div>
+        </div>
+        <div
+          class="toc-accordion-item bg-gray-50 dark:bg-[#15203c] rounded-md text-black dark:text-white mb-[15px] last:mb-0"
+        >
+          <button
+            class="toc-accordion-button text-base md:text-[15px] lg:text-md py-[13px] px-[20px] md:px-[25px] block w-full ltr:text-left rtl:text-right font-medium relative"
+            type="button"
+            (click)="toggleSection(1)"
+            [ngClass]="{ open: isSectionOpen(1) }"
+          >
+            Features
+            <i
+              class="ri-arrow-down-s-line absolute top-1/2 -translate-y-1/2 ltr:right-[20px] rtl:left-[20px] md:ltr:right-[25px] md:rtl:left-[25px] text-[20px]"
+            ></i>
+          </button>
+          <div
+            class="toc-accordion-collapse px-[20px] md:px-[25px] pb-[20px]"
+            [ngClass]="{ open: isSectionOpen(1) }"
+            formArrayName="features"
+          >
+            <div
+              *ngFor="let feature of features.controls; let i = index"
+              [formGroupName]="i"
+              class="border border-gray-100 dark:border-[#172036] mb-[15px] rounded-md p-[20px] flex flex-col gap-3"
+            >
+              <div
+                class="flex justify-between items-center mb-2 border-b border-gray-100 dark:border-[#172036] py-3"
+              >
+                <h6 class="text-sm font-semibold text-black dark:text-white">
+                  Feature {{ i + 1 }}
+                </h6>
+
+                <button
+                  (click)="removeVariant(i)"
+                  type="button"
+                  class="bg-danger-500 text-white rounded-md px-3 py-3 transition-all hover:bg-danger-400 flex"
+                >
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+
+              <div class="sm:grid sm:grid-cols-2 sm:gap-[25px]">
+                <div class="mb-[20px] sm:mb-0 sm:col-span-2">
+                  <label
+                    class="mb-[10px] text-black dark:text-white font-medium block"
+                  >
+                    Name
+                  </label>
+                  <input
+                    formControlName="name"
+                    type="text"
+                    class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+                    placeholder="E.g. Watch"
+                    [class.border-danger-500]="
+                      feature.get('name')?.invalid &&
+                      feature.get('name')?.touched
+                    "
+                  />
+                  <app-form-error
+                    class="mt-2"
+                    [control]="feature.get('name')!"
+                  ></app-form-error>
+                </div>
+
+                <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+                  <label
+                    class="mb-[10px] text-black dark:text-white font-medium block"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    formControlName="description"
+                    class="h-[140px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] p-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+                    placeholder="E.g. It makes me feel..."
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <app-icon-button
+              [label]="'Add Feature'"
+              [icon]="'ri-add-line'"
+              (clickEmitter)="addFeature()"
+            ></app-icon-button>
+          </div>
+        </div>
+        <div
+          class="toc-accordion-item bg-gray-50 dark:bg-[#15203c] rounded-md text-black dark:text-white mb-[15px] last:mb-0"
+        >
+          <button
+            class="toc-accordion-button text-base md:text-[15px] lg:text-md py-[13px] px-[20px] md:px-[25px] block w-full ltr:text-left rtl:text-right font-medium relative"
+            type="button"
+            (click)="toggleSection(2)"
+            [ngClass]="{ open: isSectionOpen(2) }"
+          >
+            Tags
+            <i
+              class="ri-arrow-down-s-line absolute top-1/2 -translate-y-1/2 ltr:right-[20px] rtl:left-[20px] md:ltr:right-[25px] md:rtl:left-[25px] text-[20px]"
+            ></i>
+          </button>
+          <div
+            class="toc-accordion-collapse px-[20px] md:px-[25px] pb-[20px]"
+            [ngClass]="{ open: isSectionOpen(2) }"
+            formArrayName="tags"
+          >
+            <div
+              *ngFor="let tag of tags.controls; let i = index"
+              [formGroupName]="i"
+              class="border border-gray-100 dark:border-[#172036] mb-[15px] rounded-md p-[20px] flex flex-col gap-3"
+            >
+              <div
+                class="flex justify-between items-center mb-2 border-b border-gray-100 dark:border-[#172036] py-3"
+              >
+                <h6 class="text-sm font-semibold text-black dark:text-white">
+                  Tag {{ i + 1 }}
+                </h6>
+
+                <button
+                  (click)="removeVariant(i)"
+                  type="button"
+                  class="bg-danger-500 text-white rounded-md px-3 py-3 transition-all hover:bg-danger-400 flex"
+                >
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+
+              <div class="sm:grid sm:grid-cols-2 sm:gap-[25px]">
+                <div class="mb-[20px] sm:mb-0 sm:col-span-2">
+                  <label
+                    class="mb-[10px] text-black dark:text-white font-medium block"
+                  >
+                    Name
+                  </label>
+                  <input
+                    formControlName="name"
+                    type="text"
+                    class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+                    placeholder="E.g. Watch"
+                    [class.border-danger-500]="
+                      tag.get('name')?.invalid && tag.get('name')?.touched
+                    "
+                  />
+                  <app-form-error
+                    class="mt-2"
+                    [control]="tag.get('name')!"
+                  ></app-form-error>
+                </div>
+
+                <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+                  <label
+                    class="mb-[10px] text-black dark:text-white font-medium block"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    formControlName="description"
+                    class="h-[140px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] p-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+                    placeholder="E.g. It makes me feel..."
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <app-icon-button
+              [label]="'Add Feature'"
+              [icon]="'ri-add-line'"
+              (clickEmitter)="addFeature()"
+            ></app-icon-button>
+          </div>
+        </div>
+
+        <div
+          class="toc-accordion-item bg-gray-50 dark:bg-[#15203c] rounded-md text-black dark:text-white mb-[15px] last:mb-0"
+        >
+          <button
+            class="toc-accordion-button open text-base md:text-[15px] lg:text-md py-[13px] px-[20px] md:px-[25px] block w-full ltr:text-left rtl:text-right font-medium relative"
+            type="button"
+            (click)="toggleSection(3)"
+            [ngClass]="{ open: isSectionOpen(3) }"
+          >
+            Specifications Group
+            <i
+              class="ri-arrow-down-s-line absolute top-1/2 -translate-y-1/2 ltr:right-[20px] rtl:left-[20px] md:ltr:right-[25px] md:rtl:left-[25px] text-[20px]"
+            ></i>
+          </button>
+          <div
+            class="toc-accordion-collapse px-[20px] md:px-[25px] pb-[20px]"
+            [ngClass]="{ open: isSectionOpen(3) }"
+            formArrayName="specificationGroups"
+          >
+            <div
+              *ngFor="
+                let variant of specificationGroups.controls;
+                let i = index
+              "
+              [formGroupName]="i"
+              class="border border-gray-100 dark:border-[#172036] mb-[15px] rounded-md p-[20px] flex flex-col gap-3"
+            >
+              <div
+                class="flex justify-between items-center mb-2 border-b border-gray-100 dark:border-[#172036] py-3"
+              >
+                <h6 class="text-sm font-semibold text-black dark:text-white">
+                  Specification{{ i + 1 }}
+                </h6>
+
+                <button
+                  (click)="removeSpec(i)"
+                  type="button"
+                  class="bg-danger-500 text-white rounded-md px-3 py-3 transition-all hover:bg-danger-400 flex"
+                >
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-[15px]">
+                <input
+                  type="text"
+                  formControlName="name"
+                  placeholder="Variant name (e.g. size)"
+                  class="h-[45px] px-3 border rounded-md dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                />
+              </div>
+
+              <div
+                formArrayName="specifications"
+                class="mt-4 flex flex-col gap-4"
+              >
+                <label class="block mb-2 text-sm text-black dark:text-white">
+                  specifications
+                </label>
+                <div
+                  *ngFor="
+                    let value of getVariantValuesControls(i);
+                    let j = index
+                  "
+                  [formGroupName]="j"
+                  class="flex items-center mb-2"
+                >
+                  <input
+                    type="text"
+                    formControlName="label"
+                    placeholder="Value (e.g. L, XL)"
+                    class="h-[40px] px-3 border rounded-md flex-1 dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    formControlName="value"
+                    placeholder="Value (e.g. L, XL)"
+                    class="h-[40px] px-3 border rounded-md flex-1 dark:bg-[#0c1427] border-gray-200 dark:border-[#172036] text-black dark:text-white"
+                  />
+
+                  <button
+                    type="button"
+                    class="ml-2 text-xs text-red-500"
+                    (click)="removeValue(i, j)"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <app-icon-button
+                  [label]="'Add Value'"
+                  [icon]="'ri-add-line'"
+                  (clickEmitter)="addValue(i)"
+                ></app-icon-button>
+              </div>
+            </div>
+
+            <app-icon-button
+              [label]="'Add Variant'"
+              [icon]="'ri-add-line'"
+              (clickEmitter)="addVariant()"
+            ></app-icon-button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

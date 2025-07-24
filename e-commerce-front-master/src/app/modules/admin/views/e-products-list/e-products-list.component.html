@@ -1,0 +1,26 @@
+<app-breadcrumb
+  [pageTitle]="pageTitle"
+  [breadcrumb]="breadcrumb"
+></app-breadcrumb>
+<!-- Products List -->
+<div
+  class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+>
+  <app-toolbar
+    [buttonTitle]="'Add New Category'"
+    (buttonClicked)="toggleClass()"
+    (searchChanged)="onSearch($event)"
+  ></app-toolbar>
+
+  <app-shared-table
+    [tableData]="tableData"
+    [tableColsName]="tableColsName"
+    [tableCols]="tableCols"
+    [page]="page"
+    [limit]="limit"
+    [totalPages]="totalPages"
+    (pageChange)="changePage($event)"
+    (editClicked)="toggleClass($event)"
+    (deleteClicked)="openPopUp($event)"
+  ></app-shared-table>
+</div>

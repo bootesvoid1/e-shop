@@ -1,0 +1,39 @@
+<span
+  *ngIf="stock !== 0"
+  class="inline-block text-xs relative rounded-sm text-success-700 mb-[14px] bg-success-50 py-[4px] ltr:pr-[16px] rtl:pl-[16px] ltr:pl-[37px] rtl:pr-[37px]"
+>
+  <i
+    class="material-symbols-outlined absolute top-1/2 -translate-y-1/2 ltr:left-[12px] rtl:right-[12px] mt-[.2px] !text-[19px]"
+  >
+    check
+  </i>
+  in stock
+</span>
+<span
+  *ngIf="stock === 0"
+  class="inline-block text-xs relative rounded-sm text-danger-700 mb-[14px] bg-danger-50 py-[4px] ltr:pr-[16px] rtl:pl-[16px] ltr:pl-[37px] rtl:pr-[37px]"
+>
+  <i
+    class="material-symbols-outlined absolute top-1/2 -translate-y-1/2 ltr:left-[12px] rtl:right-[12px] mt-[.2px] !text-[19px]"
+  >
+    close
+  </i>
+  out of stock
+</span>
+<h6 class="font-medium text-lg leading-[1.5] mb-[16px]">
+  {{ title }}
+</h6>
+<div
+  class="leading-none border-b border-gray-100 dark:border-[#172036] pb-[20px] md:pb-[25px] mb-[21px] text-md text-warning-500 flex items-center"
+>
+  <i class="ri-star-fill"></i>
+  <i class="ri-star-fill"></i>
+  <i class="ri-star-fill"></i>
+  <i class="ri-star-fill"></i>
+  <i class="ri-star-fill"></i>
+  <span
+    class="text-xs text-gray-500 dark:text-gray-400 relative top-[2px] ltr:ml-[15px] rtl:mr-[15px]"
+  >
+    (76 reviews)
+  </span>
+</div>

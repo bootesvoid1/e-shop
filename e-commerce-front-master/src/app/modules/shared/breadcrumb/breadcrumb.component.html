@@ -1,0 +1,12 @@
+<div class="mb-[25px] md:flex items-center justify-between">
+  <h5 class="mb-0">{{ pageTitle }}</h5>
+  <ol class="breadcrumb mt-[12px] md:mt-0">
+    @for (item of breadcrumb; track $index) {
+    <li
+      class="breadcrumb-item inline-block relative text-sm mx-[13px] ltr:first:ml-0 rtl:first:mr-0 ltr:last:mr-0 rtl:last:ml-0"
+    >
+      {{ item.title }}
+    </li>
+    }
+  </ol>
+</div>

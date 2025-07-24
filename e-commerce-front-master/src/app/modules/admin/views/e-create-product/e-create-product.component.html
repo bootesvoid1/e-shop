@@ -1,0 +1,75 @@
+<!-- Breadcrumb -->
+<app-breadcrumb
+  [pageTitle]="pageTitle"
+  [breadcrumb]="breadcrumb"
+></app-breadcrumb>
+<!-- Create Product -->
+<form [formGroup]="productForm">
+  <div class="flex gap-[25px]">
+    <div class="w-full">
+      <div
+        class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+      >
+        <div
+          class="trezo-card-header mb-[20px] md:mb-[25px] flex items-center justify-between"
+        >
+          <div class="trezo-card-title">
+            <h5 class="mb-0">Add A Product</h5>
+          </div>
+        </div>
+        <div class="trezo-card-content">
+          <div class="sm:gap-[25px]">
+            <app-main-informations
+              [formGroup]="mainInfo"
+            ></app-main-informations>
+            <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+              <label
+                class="mb-[10px] text-black dark:text-white font-medium block"
+              >
+                Upload Product Images
+              </label>
+
+              <app-multiple-fu (onSuccuss)="onFileSelected($event)">
+              </app-multiple-fu>
+            </div>
+            <app-product-category-vendor
+              [categories]="categories"
+              [Manufacturors]="Manufacturors"
+              [formGroup]="categoryVendor"
+            ></app-product-category-vendor>
+
+            <app-product-variants
+              [formGroup]="variantsSection"
+            ></app-product-variants>
+
+            <!-- here variants form array  -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="trezo-card mb-[25px]">
+    <div class="trezo-card-content">
+      <button
+        type="button"
+        class="font-medium inline-block transition-all rounded-md md:text-md ltr:mr-[19px] rtl:ml-[19px] py-[10px] md:py-[12px] px-[20px] md:px-[22px] bg-danger-500 text-white hover:bg-danger-400"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="onSubmit()"
+        type="button"
+        class="font-medium inline-block transition-all rounded-md md:text-md py-[10px] md:py-[12px] px-[20px] md:px-[22px] bg-primary-500 text-white hover:bg-primary-400"
+      >
+        <span class="inline-block relative ltr:pl-[29px] rtl:pr-[29px]">
+          <i
+            class="absolute top-1/2 -translate-y-1/2 material-symbols-outlined ltr:left-0 rtl:right-0"
+          >
+            add
+          </i>
+          Create Product
+        </span>
+      </button>
+    </div>
+  </div>
+</form>

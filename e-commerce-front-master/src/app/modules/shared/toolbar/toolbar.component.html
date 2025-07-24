@@ -1,0 +1,25 @@
+<div
+  class="trezo-card-header mb-[20px] md:mb-[25px] sm:flex items-center justify-between"
+>
+  <div class="trezo-card-title">
+    <app-search-field
+      (searchChanged)="onSearchChanged($event)"
+    ></app-search-field>
+  </div>
+  <div class="trezo-card-subtitle mt-[15px] sm:mt-0">
+    <button
+      type="button"
+      class="inline-block transition-all rounded-md font-medium px-[13px] py-[6px] text-primary-500 border border-primary-500 hover:bg-primary-500 hover:text-white"
+      (click)="onClick()"
+    >
+      <span class="inline-block relative ltr:pl-[22px] rtl:pr-[22px]">
+        <i
+          class="material-symbols-outlined !text-[22px] absolute ltr:-left-[4px] rtl:-right-[4px] top-1/2 -translate-y-1/2"
+        >
+          add
+        </i>
+        {{ buttonTitle }}
+      </span>
+    </button>
+  </div>
+</div>

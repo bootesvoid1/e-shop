@@ -1,0 +1,71 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_ID = 'YOUR_ACTUAL_PROJECT_ID'  // CHANGE THIS
+        GCR_REGISTRY = 'gcr.io'
+        BACKEND_IMAGE = 'ecommerce-backend'
+        FRONTEND_IMAGE = 'ecommerce-frontend'
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        GCP_CREDENTIALS_ID = 'gcp-service-account-key'
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Backend Image') {
+            steps {
+                sh """
+                    docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} -f Dockerfile.backend .
+                """
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+                sh """
+                    docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} -f Dockerfile.frontend .
+                """
+            }
+        }
+
+        stage('Push to GCR') {
+            steps {
+                script {
+                    sh """
+                        gcloud auth configure-docker
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG}
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG}
+                        
+                        # Also tag as latest
+                        docker tag ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                        docker tag ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to GKE') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: env.GCP_CREDENTIALS_ID, variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                        sh '''
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
+                            
+                            # Update deployments
+                            kubectl set image deployment/ecommerce-backend backend=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                            kubectl set image deployment/ecommerce-frontend frontend=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,51 @@
+<div
+  class="add-new-popup z-[999] fixed transition-all inset-0 overflow-x-hidden overflow-y-auto"
+  [class.active]="classApplied"
+>
+  <div
+    class="popup-dialog flex transition-all max-w-[550px] min-h-full items-center mx-auto"
+  >
+    <div
+      class="trezo-card w-full bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+    >
+      <div
+        class="trezo-card-header bg-gray-50 dark:bg-[#15203c] mb-[20px] md:mb-[25px] flex items-center justify-between -mx-[20px] md:-mx-[25px] -mt-[20px] md:-mt-[25px] p-[20px] md:p-[25px] rounded-t-md"
+      >
+        <div class="trezo-card-title">
+          <h5 class="mb-0">Delete Confirmation</h5>
+        </div>
+        <div class="trezo-card-subtitle">
+          <button
+            type="button"
+            class="text-[23px] transition-all leading-none text-black dark:text-white hover:text-primary-500"
+            (click)="toggleClass()"
+          >
+            <i class="ri-close-fill"></i>
+          </button>
+        </div>
+      </div>
+      <div class="trezo-card-content pb-[20px] md:pb-[25px]">
+        Are you sure you want to delete this item? This action is permanent and
+        cannot be undone.
+      </div>
+      <div
+        class="trezo-card-footer flex items-center justify-between -mx-[20px] md:-mx-[25px] px-[20px] md:px-[25px] pt-[20px] md:pt-[25px] border-t border-gray-100 dark:border-[#172036]"
+      >
+        <button
+          class="inline-block py-[10px] px-[30px] bg-danger-500 text-white transition-all hover:bg-danger-400 rounded-md border border-danger-500 hover:border-danger-400"
+          type="button"
+          (click)="toggleClass()"
+        >
+          Close
+        </button>
+        <button
+          (click)="onConfirm()"
+          class="inline-block py-[10px] px-[30px] bg-primary-500 text-white transition-all hover:bg-primary-400 rounded-md border border-primary-500 hover:border-primary-400 ltr:mr-[11px] rtl:ml-[11px] mb-[15px]"
+          type="button"
+        >
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

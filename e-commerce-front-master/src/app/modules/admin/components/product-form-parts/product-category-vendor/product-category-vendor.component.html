@@ -1,0 +1,29 @@
+<form [formGroup]="formGroup">
+  <div class="mb-[20px] md:mb-[25px] last:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Category
+    </label>
+
+    <ng-select
+      [items]="categories"
+      appearance="outline"
+      bindLabel="name"
+      bindValue="id"
+      formControlName="categoryId"
+    >
+    </ng-select>
+  </div>
+  <div class="mb-[20px] md:mb-[25px] last:mb-0">
+    <label class="mb-[10px] text-black dark:text-white font-medium block">
+      Vendor
+    </label>
+    <ng-select
+      [items]="Manufacturors"
+      appearance="outline"
+      bindLabel="name"
+      bindValue="id"
+      formControlName="manufacturerId"
+    >
+    </ng-select>
+  </div>
+</form>

@@ -1,0 +1,131 @@
+<div [formGroup]="formGroup">
+  <div
+    class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+  >
+    <div
+      class="trezo-card-header mb-[20px] md:mb-[25px] flex items-center justify-between"
+    >
+      <div class="trezo-card-title">
+        <h5 class="mb-0">Billing Information</h5>
+      </div>
+    </div>
+    <div class="trezo-card-content">
+      <div class="sm:grid sm:grid-cols-2 sm:gap-[25px]">
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            First Name
+          </label>
+          <input
+            formControlName="firstName"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. Ava Turner"
+          />
+        </div>
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            Last Name
+          </label>
+          <input
+            formControlName="lastName"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. Ava Turner"
+          />
+        </div>
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            Phone Number
+          </label>
+          <input
+            formControlName="phone"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. +1 555-123-4567"
+          />
+        </div>
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            Email Address
+          </label>
+          <input
+            formControlName="email"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. ava@trezo.com"
+          />
+        </div>
+
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            City
+          </label>
+          <ng-select
+            [items]="citySuggestions"
+            bindLabel="display_name"
+            bindValue="display_name"
+            [loading]="isLoadingCities"
+            [typeahead]="cityInput$"
+            formControlName="city"
+            appearance="outline"
+          >
+          </ng-select>
+        </div>
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            ZIP / Postcode
+          </label>
+          <input
+            formControlName="ZipCode"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. 3100"
+          />
+        </div>
+        <div class="mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            Street Address
+          </label>
+          <input
+            formControlName="street"
+            type="text"
+            class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="E.g. 123 Main Street, Anytown, USA"
+          />
+        </div>
+
+        <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+          <label class="mb-[10px] text-black dark:text-white font-medium block">
+            Order Note (optional)
+          </label>
+          <textarea
+            formControlName="notes"
+            class="h-[140px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] p-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+            placeholder="It makes me feel..."
+          ></textarea>
+        </div>
+      </div>
+      <button
+        (click)="onClick('cancel')"
+        type="button"
+        class="mt-[20px] md:mt-[25px] font-medium inline-block transition-all rounded-md md:text-md ltr:mr-[19px] rtl:ml-[19px] py-[10px] md:py-[12px] px-[20px] md:px-[22px] bg-danger-500 text-white hover:bg-danger-400"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="onClick('confirm')"
+        type="button"
+        class="mt-[20px] md:mt-[25px] font-medium inline-block transition-all rounded-md md:text-md py-[10px] md:py-[12px] px-[20px] md:px-[22px] bg-primary-500 text-white hover:bg-primary-400"
+      >
+        <span class="inline-block relative ltr:pl-[29px] rtl:pr-[29px]">
+          <i
+            class="absolute top-1/2 -translate-y-1/2 material-symbols-outlined ltr:left-0 rtl:right-0"
+          >
+            add
+          </i>
+          Create Order
+        </span>
+      </button>
+    </div>
+  </div>
+</div>

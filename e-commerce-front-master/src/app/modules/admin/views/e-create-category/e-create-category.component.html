@@ -1,0 +1,108 @@
+<!-- Breadcrumb -->
+<app-breadcrumb
+  [pageTitle]="pageTitle"
+  [breadcrumb]="breadcrumb"
+></app-breadcrumb>
+
+<!-- Create Product -->
+<form>
+  <div class="">
+    <div
+      class="trezo-card bg-white dark:bg-[#0c1427] mb-[25px] p-[20px] md:p-[25px] rounded-md"
+    >
+      <div class="trezo-card-content" [formGroup]="categoryForm">
+        <div class="sm:grid sm:grid-cols-2 sm:gap-[25px]">
+          <div class="mb-[20px] sm:mb-0">
+            <label
+              class="mb-[10px] text-black dark:text-white font-medium block"
+            >
+              Name
+            </label>
+            <input
+              formControlName="name"
+              type="text"
+              class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+              placeholder="E.g. Watch"
+              [class.border-danger-500]="
+                categoryForm.get('name')?.invalid &&
+                categoryForm.get('name')?.touched
+              "
+            />
+            <app-form-error
+              class="mt-2"
+              [control]="categoryForm.get('name')!"
+            ></app-form-error>
+          </div>
+          <div class="mb-[20px] sm:mb-0">
+            <label
+              class="mb-[10px] text-black dark:text-white font-medium block"
+            >
+              Slug
+            </label>
+            <input
+              formControlName="slug"
+              type="text"
+              class="h-[55px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] px-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+              placeholder="Watch"
+              [class.border-danger-500]="
+                categoryForm.get('slug')?.invalid &&
+                categoryForm.get('slug')?.touched
+              "
+            />
+            <app-form-error
+              class="mt-2"
+              [control]="categoryForm.get('slug')!"
+            ></app-form-error>
+          </div>
+
+          <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+            <label
+              class="mb-[10px] text-black dark:text-white font-medium block"
+            >
+              Description
+            </label>
+            <textarea
+              formControlName="description"
+              class="h-[140px] rounded-md text-black dark:text-white border border-gray-200 dark:border-[#172036] bg-white dark:bg-[#0c1427] p-[17px] block w-full outline-0 transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-primary-500"
+              placeholder="E.g. It makes me feel..."
+            ></textarea>
+          </div>
+          <div class="sm:col-span-2 mb-[20px] sm:mb-0">
+            <label
+              class="mb-[10px] text-black dark:text-white font-medium block"
+            >
+              Image
+            </label>
+            <app-multiple-fu
+              (onSuccuss)="onFileSelected($event)"
+            ></app-multiple-fu>
+          </div>
+        </div>
+        <div class="mt-[20px] md:mt-[25px] ltr:text-right rtl:text-left">
+          <button
+            (click)="onNavigateBack()"
+            class="rounded-md inline-block transition-all font-medium ltr:mr-[19px] rtl:ml-[19px] px-[26.5px] py-[12px] bg-danger-500 text-white hover:bg-danger-400"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="inline-block bg-primary-500 text-white py-[12px] px-[26.5px] transition-all rounded-md hover:bg-primary-400"
+          >
+            <span
+              (click)="onSubmit()"
+              class="inline-block relative ltr:pl-[25px] rtl:pr-[25px]"
+            >
+              <i
+                class="material-symbols-outlined !text-[20px] absolute ltr:left-0 rtl:right-0 top-1/2 -translate-y-1/2"
+              >
+                add
+              </i>
+              Create
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>

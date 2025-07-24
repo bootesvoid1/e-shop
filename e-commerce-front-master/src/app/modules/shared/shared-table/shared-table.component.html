@@ -1,0 +1,139 @@
+<div class="trezo-card-content">
+  <div class="overflow-x-auto table-responsive">
+    <table class="w-full">
+      <thead class="text-black dark:text-white">
+        <tr>
+          <th
+            class="ltr:text-left rtl:text-right px-[20px] py-[11px] bg-gray-50 dark:bg-[#15203c] whitespace-nowrap ltr:first:rounded-tl-md ltr:last:rounded-tr-md rtl:first:rounded-tr-md rtl:last:rounded-tl-md"
+          >
+            <div class="form-check relative top-[2px]">
+              <input type="checkbox" class="cursor-pointer" />
+            </div>
+          </th>
+
+          <th
+            *ngFor="let item of tableColsName"
+            class="font-medium ltr:text-left rtl:text-right px-[20px] py-[11px] bg-gray-50 dark:bg-[#15203c] whitespace-nowrap ltr:first:rounded-tl-md ltr:last:rounded-tr-md rtl:first:rounded-tr-md rtl:last:rounded-tl-md"
+          >
+            {{ item }}
+          </th>
+        </tr>
+      </thead>
+      <tbody class="text-black dark:text-white">
+        <tr *ngFor="let item of tableData">
+          <td
+            class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+          >
+            <div class="form-check relative top-[2px]">
+              <input type="checkbox" class="cursor-pointer" />
+            </div>
+          </td>
+          <ng-container *ngFor="let col of tableCols">
+            <td
+              *ngIf="col !== 'actions' && col !== 'category' && col !== 'name'"
+              class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+            >
+              <span class="text-gray-500 dark:text-gray-400"
+                >{{ item[col] }}
+              </span>
+            </td>
+            <td
+              *ngIf="col !== 'actions' && col === 'category'"
+              class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+            >
+              <span class="text-gray-500 dark:text-gray-400">
+                {{ item.name }}
+              </span>
+            </td>
+
+            <td
+              *ngIf="col !== 'actions' && col === 'name'"
+              class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+            >
+              <!-- <div class="rounded-md w-[40px]">
+                <img
+                  [src]="item.document.url"
+                  class="inline-block rounded-md"
+                  alt="product-image"
+                />
+              </div> -->
+              <span class="text-gray-500 dark:text-gray-400">
+                {{ item.name }}
+              </span>
+            </td>
+
+            <td
+              *ngIf="col === 'actions'"
+              class="ltr:text-left rtl:text-right whitespace-nowrap px-[20px] py-[15px] border-b border-gray-100 dark:border-[#172036] ltr:first:border-l ltr:last:border-r rtl:first:border-r rtl:last:border-l"
+            >
+              <div class="flex items-center gap-[9px]">
+                <a routerLink="." class="leading-none text-primary-500">
+                  <i class="material-symbols-outlined !text-md"> visibility </i>
+                </a>
+                <button
+                  (click)="edit(item)"
+                  type="button"
+                  class="leading-none text-gray-500 dark:text-gray-400"
+                >
+                  <i class="material-symbols-outlined !text-md"> edit </i>
+                </button>
+                <button
+                  (click)="delete(item)"
+                  type="button"
+                  class="leading-none text-danger-500"
+                >
+                  <i class="material-symbols-outlined !text-md"> delete </i>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div
+    class="px-[20px] py-[12px] md:py-[14px] rounded-b-md border-l border-r border-b border-gray-100 dark:border-[#172036] sm:flex sm:items-center justify-between"
+  >
+    <p class="mb-0 text-sm">
+      Showing {{ tableData.length }} of {{ totalPages * limit || 0 }} results
+    </p>
+
+    <ol class="mt-[10px] sm:mt-0">
+      <!-- Previous Page -->
+      <li class="inline-block mx-[3px]" *ngIf="page > 1">
+        <button
+          (click)="changePage(page - 1)"
+          class="w-[31px] h-[31px] block text-center rounded-md border border-gray-100 dark:border-[#172036] hover:bg-primary-500 hover:text-white hover:border-primary-500"
+        >
+          <i class="material-symbols-outlined">chevron_left</i>
+        </button>
+      </li>
+
+      <!-- Numbered Pages -->
+      <li
+        class="inline-block mx-[3px]"
+        *ngFor="let p of [].constructor(totalPages); let i = index"
+      >
+        <button
+          (click)="changePage(i + 1)"
+          [class.bg-primary-500]="page === i + 1"
+          [class.text-white]="page === i + 1"
+          class="w-[31px] h-[31px] block text-center rounded-md border border-gray-100 dark:border-[#172036] hover:bg-primary-500 hover:text-white"
+        >
+          {{ i + 1 }}
+        </button>
+      </li>
+
+      <!-- Next Page -->
+      <li class="inline-block mx-[3px]" *ngIf="page < totalPages">
+        <button
+          (click)="changePage(page + 1)"
+          class="w-[31px] h-[31px] block text-center rounded-md border border-gray-100 dark:border-[#172036] hover:bg-primary-500 hover:text-white hover:border-primary-500"
+        >
+          <i class="material-symbols-outlined">chevron_right</i>
+        </button>
+      </li>
+    </ol>
+  </div>
+</div>
