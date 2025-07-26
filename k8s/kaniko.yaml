@@ -1,4 +1,5 @@
-# ... apiVersion, kind, metadata ...
+apiVersion: v1
+kind: Pod
 spec:
   containers:
   - name: kaniko
@@ -16,7 +17,7 @@ spec:
   - name: jnlp # Jenkins Agent Container
     image: jenkins/inbound-agent:jdk11
     imagePullPolicy: IfNotPresent
-    # Args are handled by the Jenkins plugin or use default entrypoint
+    # Args are handled by the Jenkins plugin
     volumeMounts:
     - name: workspace
       mountPath: /workspace

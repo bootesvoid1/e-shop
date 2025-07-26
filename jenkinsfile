@@ -78,7 +78,6 @@ pipeline {
             }
         }
 
-        // --- SINGLE DEPLOY STAGE ---
         stage('Deploy to GKE') {
             steps {
                 script {
@@ -91,17 +90,24 @@ pipeline {
 
                             echo "🚀 Downloading Kubernetes manifests from GCS..."
                             mkdir -p /tmp/k8s-manifests
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp/k8s-manifests/
 
-                            echo "🚀 Applying Kubernetes manifests..."
-                            kubectl apply -f /tmp/k8s-manifests/
+                            # Copy deployments and services to separate directories
+                            mkdir -p /tmp/k8s-manifests/deployments
+                            mkdir -p /tmp/k8s-manifests/services
+
+                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/deployments/* /tmp/k8s-manifests/deployments/
+                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/services/* /tmp/k8s-manifests/services/
+
+                            echo "🚀 Applying Kubernetes Deployments..."
+                            kubectl apply -f /tmp/k8s-manifests/deployments/
+
+                            echo "🚀 Applying Kubernetes Services..."
+                            kubectl apply -f /tmp/k8s-manifests/services/
                         '''
                     }
                 }
             }
         }
-        // --- END SINGLE DEPLOY STAGE ---
-    }
 
     post {
         always  { echo "🧹 Cleaning up…" }
