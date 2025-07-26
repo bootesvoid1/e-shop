@@ -78,9 +78,32 @@ pipeline {
             }
         }
 
-        stage('Push to GCR') {
+        stage('Deploy to GKE') {
             steps {
-                echo "✅ Kaniko already pushed images to GCR"
+                script {
+                    withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
+                        sh '''
+                            echo "$GCP_SA_JSON" > /tmp/gcp-key.json
+                            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
+
+                            echo "🚀 Downloading Kubernetes manifests from GCS..."
+                            # --- NEW ---
+                            # IMPORTANT: Replace 'gs://your-actual-bucket-name/path/to/k8s/folder' with your real GCS path
+                            # Example: gs://my-e-shop-bucket/k8s-configs/
+                            mkdir -p /tmp/k8s-manifests
+                            gsutil -m cp -r gs://your-actual-bucket-name/path/to/k8s/folder/* /tmp/k8s-manifests/
+                            # --- END NEW ---
+
+                            echo "🚀 Applying Kubernetes manifests..."
+                            # --- CHANGED ---
+                            # Use kubectl apply instead of kubectl set image
+                            kubectl apply -f /tmp/k8s-manifests/
+                            # --- END CHANGED ---
+                        '''
+                    }
+                }
             }
         }
 
