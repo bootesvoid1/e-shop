@@ -1,0 +1,168 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_ID = 'e-shop-deploy'
+        GCR_REGISTRY = 'gcr.io'
+        BACKEND_IMAGE = 'ecommerce-backend'
+        FRONTEND_IMAGE = 'ecommerce-frontend'
+        USER_SERVICE_IMAGE = 'user-service'
+        PRODUCT_SERVICE_IMAGE = 'product-service'
+        TRANSACTION_SERVICE_IMAGE = 'transaction-service'
+        RECOMMENDATION_API_IMAGE = 'recommendation-api' 
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        GCP_KEY      = credentials('gcp-service-account-key')
+        GCP_CREDENTIALS_ID = 'gcp-service-account-key'
+        // Consider storing sensitive Docker Scout tokens in Jenkins Credentials if needed for advanced features
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // --- NEW STAGE: Security Scan (Secrets) ---
+        stage('Security Scan - Secrets') {
+            steps {
+                script {
+                    // Example using git-secrets or similar tool if available
+                    // sh 'git secrets --scan'
+                    echo "🔍 Running secret scanning (e.g., git-secrets) - Implement based on your tool choice"
+                    // Placeholder - Implement actual secret scanning command
+                    // sh 'npx @slangroom/git-secrets --scan' // Example from your previous file
+                }
+            }
+        }
+        // --- END NEW STAGE ---
+
+        stage('Build Images') {
+            steps {
+                script {
+                    sh """
+                        echo "🏗️ Building Backend Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.backend e-commerce-master/.
+                        echo "🏗️ Building Frontend Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} -f e-commerce-front-master/Dockerfile.frontend e-commerce-front-master/.
+                        echo "🏗️ Building Recommendation API Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} recommendation-service/.
+                        echo "🏗️ Building User Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.user e-commerce-master/.
+                        echo "🏗️ Building Product Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.product e-commerce-master/.
+                        echo "🏗️ Building Transaction Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.transaction e-commerce-master/.
+                    """
+                }
+            }
+        }
+
+        // --- NEW STAGE: Security Scan (Docker Scout) ---
+        stage('Security Scan - Docker Scout') {
+            steps {
+                script {
+                    echo "🛡️ Running Docker Scout vulnerability scan..."
+                    // Ensure docker-scout CLI is installed on the Jenkins agent
+                    // Or run it inside a container: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock docker/scout-cli ...
+                    sh """
+                        # Scout the backend image
+                        echo "🔍 Scanning Backend Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > backend-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for backend (check report)"
+
+                        # Scout the frontend image
+                        echo "🔍 Scanning Frontend Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > frontend-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for frontend (check report)"
+
+                        # Scout the recommendation API image
+                        echo "🔍 Scanning Recommendation API Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > api-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for API (check report)"
+                        # --- NEW: Scout the User Service image ---
+                        echo "🔍 Scanning User Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > user-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for User Service (check report)"
+
+                        # --- NEW: Scout the Product Service image ---
+                        echo "🔍 Scanning Product Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > product-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for Product Service (check report)"
+
+                        # --- NEW: Scout the Transaction Service image ---
+                        echo "🔍 Scanning Transaction Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > transaction-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for Transaction Service (check report)"
+                        # --- END NEW ---
+                        echo "✅ Docker Scout scans completed (reports generated if SARIF plugin is used)"
+                    """
+                    // Optional: Archive SARIF reports if using Jenkins SARIF plugin for visualization
+                    // archiveArtifacts artifacts: 'backend-scout-report.sarif,frontend-scout-report.sarif,api-scout-report.sarif', fingerprint: true
+                }
+            }
+        }
+        // --- END NEW STAGE ---
+
+        stage('Push to GCR') {
+            steps {
+                script {
+                    sh """
+                        echo "📤 Configuring Docker for GCP..."
+                        gcloud auth configure-docker
+
+                        echo "📤 Pushing Backend Image..."
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG}
+                        echo "📤 Pushing Frontend Image..."
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG}
+                        echo "📤 Pushing Recommendation API Image..."
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG}
+
+                        echo "🏷️ Tagging and pushing latest images..."
+                        docker tag ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                        docker tag ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                        docker tag ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:latest
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                        docker push ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to GKE') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
+                        sh '''
+                            echo "$GCP_SA_JSON" > /tmp/gcp-key.json
+                            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            echo "☸️ Authenticating with GCP..."
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            echo "☸️ Getting GKE cluster credentials..."
+                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
+
+                            echo "🚀 Deploying Backend..."
+                            kubectl set image deployment/ecommerce-backend backend=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest
+                            echo "🚀 Deploying Frontend..."
+                            kubectl set image deployment/ecommerce-frontend frontend=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest
+                            echo "🚀 Deploying Recommendation API..."
+                            kubectl set image deployment/recommendation-api api=${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:latest
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                echo "🧹 Cleaning up Docker images (optional, depends on agent setup)..."
+                // sh "docker rmi ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} || true"
+                // sh "docker rmi ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} || true"
+                // sh "docker rmi ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} || true"
+            }
+        }
+        success {
+            echo "✅ Pipeline completed successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs for details."
+        }
+    }
+}
