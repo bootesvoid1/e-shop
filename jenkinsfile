@@ -19,7 +19,7 @@ pipeline {
         GCP_CREDENTIALS_ID         = 'gcp-service-account-key'
     }
 
-    stages {
+    stages { // <-- Start of 'stages' block
         stage('Checkout Code') {
             steps { checkout scm }
         }
@@ -109,9 +109,11 @@ pipeline {
             }
         }
 
+    } // <-- Missing closing brace '}' for 'stages' block added here
+
     post {
         always  { echo "🧹 Cleaning up…" }
         success { echo "✅ Pipeline completed successfully!" }
         failure { echo "❌ Pipeline failed. Check logs." }
     }
-}
+} // <-- Closing brace '}' for 'pipeline' block
