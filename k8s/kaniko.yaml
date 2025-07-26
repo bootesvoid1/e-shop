@@ -1,0 +1,29 @@
+# ... apiVersion, kind, metadata ...
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:v1.23.2
+    imagePullPolicy: IfNotPresent
+    command: ["/busybox/sh", "-c", "--"]
+    args: ["while true; do sleep 30; done;"]
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+  - name: jnlp # Jenkins Agent Container
+    image: jenkins/inbound-agent:jdk11
+    imagePullPolicy: IfNotPresent
+    # Args are handled by the Jenkins plugin or use default entrypoint
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+  volumes:
+  - name: workspace
+    emptyDir: {}
