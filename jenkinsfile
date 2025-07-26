@@ -1,63 +1,62 @@
 pipeline {
     agent {
         kubernetes {
-            label 'kaniko=true'
-            yaml """
+            yaml '''
 apiVersion: v1
 kind: Pod
 spec:
   serviceAccountName: jenkins
-  initContainers:
-    - name: busybox-share-init
-      image: busybox:musl
-      command:
-        - sh
-      args:
-        - -c
-        - "cp -a /bin/* /busybox"
-      volumeMounts:
-        - name: busybox
-          mountPath: /busybox
   containers:
-    - name: jnlp
-      image: jenkins/inbound-agent:latest
-      resources:
-        requests:
-          memory: "256Mi"
-          cpu: "100m"
-        limits:
-          memory: "512Mi"
-          cpu: "500m"
-      volumeMounts:
-        - name: workspace
-          mountPath: /home/jenkins/agent
-    - name: kaniko
-      image: gcr.io/kaniko-project/executor:v1.23.2
-      imagePullPolicy: IfNotPresent
-      command:
-        - /busybox/sleep
-      args:
-        - infinity
-      workingDir: /workspace
-      volumeMounts:
-        - name: busybox
-          mountPath: /busybox
-          readOnly: true
-        - name: workspace
-          mountPath: /workspace
-      resources:
-        requests:
-          memory: "1Gi"
-          cpu: "500m"
-        limits:
-          memory: "2Gi"
-          cpu: "1"
+  - name: jnlp
+    image: jenkins/inbound-agent:latest
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command:
+    - sleep
+    args:
+    - infinity
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    volumeMounts:
+    - name: workspace-volume
+      mountPath: /workspace
+    workingDir: /workspace
+  - name: gcloud
+    image: google/cloud-sdk:latest
+    command:
+    - sleep
+    args:
+    - infinity
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: workspace-volume
+      mountPath: /workspace
   volumes:
-    - name: busybox
-      emptyDir: {}
-    - name: workspace
-      emptyDir: {}
-"""
+  - name: workspace-volume
+    emptyDir: {}
+  restartPolicy: Never
+'''
         }
     }
 
@@ -80,8 +79,17 @@ spec:
             steps { 
                 checkout scm 
                 script {
-                    // List files to verify checkout
-                    sh 'ls -la'
+                    echo "✅ Source code checked out successfully"
+                    sh '''
+                        echo "=== WORKSPACE CONTENTS ==="
+                        ls -la
+                        echo "=== CHECKING REQUIRED DIRECTORIES ==="
+                        ls -la e-commerce-master/ || echo "❌ e-commerce-master not found"
+                        ls -la e-commerce-front-master/ || echo "❌ e-commerce-front-master not found"
+                        ls -la recommendation-service/ || echo "❌ recommendation-service not found"
+                        echo "=== CHECKING DOCKERFILES ==="
+                        find . -name "Dockerfile*" -type f
+                    '''
                 }
             }
         }
@@ -90,7 +98,6 @@ spec:
             steps {
                 script {
                     echo "🔍 Running secret scanning (placeholder)"
-                    // Add your security scanning tool here
                 }
             }
         }
@@ -99,15 +106,22 @@ spec:
             steps {
                 container('kaniko') {
                     script {
+                        echo "🔧 Setting up GCP authentication for Kaniko..."
                         withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
                             sh '''
-                                echo "Setting up GCP authentication for Kaniko..."
+                                echo "Setting up Kaniko authentication..."
                                 mkdir -p /kaniko/.docker
                                 
-                                # Create Docker config for GCR authentication
-                                echo "$GCP_SA_JSON" | base64 -d > /tmp/gcp-key.json
+                                # Create temporary file for service account
+                                echo "$GCP_SA_JSON" > /tmp/gcp-key.json
                                 
-                                # Create the Docker config file for Kaniko
+                                # Validate JSON
+                                if ! cat /tmp/gcp-key.json | head -c 10 | grep -q '{'; then
+                                    echo "❌ GCP service account JSON appears to be invalid"
+                                    exit 1
+                                fi
+                                
+                                # Create Docker config for Kaniko
                                 cat > /kaniko/.docker/config.json << EOF
 {
   "auths": {
@@ -117,8 +131,13 @@ spec:
   }
 }
 EOF
-                                echo "✅ GCP authentication configured"
-                                rm /tmp/gcp-key.json
+                                
+                                echo "✅ Kaniko authentication configured"
+                                rm -f /tmp/gcp-key.json
+                                
+                                # Verify config was created
+                                ls -la /kaniko/.docker/
+                                echo "Config file size: $(wc -c < /kaniko/.docker/config.json) bytes"
                             '''
                         }
                     }
@@ -130,97 +149,103 @@ EOF
             steps {
                 container('kaniko') {
                     script {
-                        sh """
-                            echo "🔨 Building Docker images with Kaniko..."
-                            
-                            # Backend
-                            echo "Building Backend..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/e-commerce-master \
-                              --dockerfile=\$(pwd)/e-commerce-master/Dockerfile.backend \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            # Frontend
-                            echo "Building Frontend..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/e-commerce-front-master \
-                              --dockerfile=\$(pwd)/e-commerce-front-master/Dockerfile.frontend \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            # Recommendation API
-                            echo "Building Recommendation API..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/recommendation-service \
-                              --dockerfile=\$(pwd)/recommendation-service/Dockerfile \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            # User Service
-                            echo "Building User Service..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/e-commerce-master \
-                              --dockerfile=\$(pwd)/e-commerce-master/Dockerfile.user \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            # Product Service
-                            echo "Building Product Service..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/e-commerce-master \
-                              --dockerfile=\$(pwd)/e-commerce-master/Dockerfile.product \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            # Transaction Service
-                            echo "Building Transaction Service..."
-                            /kaniko/executor \
-                              --context=\$(pwd)/e-commerce-master \
-                              --dockerfile=\$(pwd)/e-commerce-master/Dockerfile.transaction \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} \
-                              --destination=${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:latest \
-                              --cache=true \
-                              --cleanup
-
-                            echo "✅ All images built successfully"
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Update Kubernetes Manifests') {
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
+                        echo "🔨 Building Docker images with Kaniko..."
                         sh '''
-                            echo "$GCP_SA_JSON" > /tmp/gcp-key.json
-                            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
-                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            echo "=== VERIFYING KANIKO SETUP ==="
+                            /kaniko/executor --help | head -5
+                            ls -la /kaniko/.docker/config.json
                             
-                            echo "🔄 Updating image tags in Kubernetes manifests..."
-                            mkdir -p /tmp/k8s-manifests/deployments
-                            mkdir -p /tmp/k8s-manifests/services
+                            echo "=== BUILDING BACKEND IMAGE ==="
+                            if [ -d "e-commerce-master" ] && [ -f "e-commerce-master/Dockerfile.backend" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/e-commerce-master \
+                                  --dockerfile=$(pwd)/e-commerce-master/Dockerfile.backend \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ Backend image built successfully"
+                            else
+                                echo "❌ Backend Dockerfile not found"
+                                exit 1
+                            fi
 
-                            # Download manifests
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/deployments/* /tmp/k8s-manifests/deployments/
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/services/* /tmp/k8s-manifests/services/
+                            echo "=== BUILDING FRONTEND IMAGE ==="
+                            if [ -d "e-commerce-front-master" ] && [ -f "e-commerce-front-master/Dockerfile.frontend" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/e-commerce-front-master \
+                                  --dockerfile=$(pwd)/e-commerce-front-master/Dockerfile.frontend \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ Frontend image built successfully"
+                            else
+                                echo "❌ Frontend Dockerfile not found"
+                                exit 1
+                            fi
 
-                            # Update image tags in deployment files
-                            find /tmp/k8s-manifests/deployments -name "*.yaml" -o -name "*.yml" | xargs sed -i "s|:latest|:${BUILD_NUMBER}|g"
-                            
-                            echo "✅ Manifests updated with build number: ${BUILD_NUMBER}"
+                            echo "=== BUILDING RECOMMENDATION API ==="
+                            if [ -d "recommendation-service" ] && [ -f "recommendation-service/Dockerfile" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/recommendation-service \
+                                  --dockerfile=$(pwd)/recommendation-service/Dockerfile \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ Recommendation API image built successfully"
+                            else
+                                echo "❌ Recommendation API Dockerfile not found"
+                                exit 1
+                            fi
+
+                            echo "=== BUILDING USER SERVICE ==="
+                            if [ -f "e-commerce-master/Dockerfile.user" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/e-commerce-master \
+                                  --dockerfile=$(pwd)/e-commerce-master/Dockerfile.user \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ User service image built successfully"
+                            else
+                                echo "❌ User service Dockerfile not found"
+                                exit 1
+                            fi
+
+                            echo "=== BUILDING PRODUCT SERVICE ==="
+                            if [ -f "e-commerce-master/Dockerfile.product" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/e-commerce-master \
+                                  --dockerfile=$(pwd)/e-commerce-master/Dockerfile.product \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ Product service image built successfully"
+                            else
+                                echo "❌ Product service Dockerfile not found"
+                                exit 1
+                            fi
+
+                            echo "=== BUILDING TRANSACTION SERVICE ==="
+                            if [ -f "e-commerce-master/Dockerfile.transaction" ]; then
+                                /kaniko/executor \
+                                  --context=$(pwd)/e-commerce-master \
+                                  --dockerfile=$(pwd)/e-commerce-master/Dockerfile.transaction \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} \
+                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:latest \
+                                  --cache=true \
+                                  --cleanup
+                                echo "✅ Transaction service image built successfully"
+                            else
+                                echo "❌ Transaction service Dockerfile not found"
+                                exit 1
+                            fi
+
+                            echo "🎉 All images built successfully!"
                         '''
                     }
                 }
@@ -229,25 +254,39 @@ EOF
 
         stage('Deploy to GKE') {
             steps {
-                script {
-                    withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
-                        sh '''
-                            echo "$GCP_SA_JSON" > /tmp/gcp-key.json
-                            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
-                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
+                container('gcloud') {
+                    script {
+                        withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
+                            sh '''
+                                echo "🔧 Setting up GCloud authentication..."
+                                echo "$GCP_SA_JSON" > /tmp/gcp-key.json
+                                export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+                                gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                                gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
 
-                            echo "🚀 Applying Kubernetes Deployments..."
-                            kubectl apply -f /tmp/k8s-manifests/deployments/
+                                echo "📥 Downloading Kubernetes manifests from GCS..."
+                                mkdir -p /tmp/k8s-manifests/deployments
+                                mkdir -p /tmp/k8s-manifests/services
 
-                            echo "🚀 Applying Kubernetes Services..."
-                            kubectl apply -f /tmp/k8s-manifests/services/
+                                gsutil -m cp -r gs://e-shop-bucket-1/k8s/deployments/* /tmp/k8s-manifests/deployments/
+                                gsutil -m cp -r gs://e-shop-bucket-1/k8s/services/* /tmp/k8s-manifests/services/
 
-                            echo "⏳ Waiting for deployments to be ready..."
-                            kubectl rollout status deployment --all --timeout=300s
+                                echo "🔄 Updating image tags in deployments..."
+                                find /tmp/k8s-manifests/deployments -name "*.yaml" -o -name "*.yml" | xargs sed -i "s|:latest|:${BUILD_NUMBER}|g"
 
-                            echo "✅ Deployment completed successfully!"
-                        '''
+                                echo "🚀 Applying Kubernetes Deployments..."
+                                kubectl apply -f /tmp/k8s-manifests/deployments/
+
+                                echo "🚀 Applying Kubernetes Services..."
+                                kubectl apply -f /tmp/k8s-manifests/services/
+
+                                echo "⏳ Waiting for deployments to be ready..."
+                                kubectl rollout status deployment --all --timeout=300s
+
+                                echo "✅ Deployment completed successfully!"
+                                rm -f /tmp/gcp-key.json
+                            '''
+                        }
                     }
                 }
             }
@@ -260,6 +299,6 @@ EOF
             sh 'rm -f /tmp/gcp-key.json || true'
         }
         success { echo "✅ Pipeline completed successfully!" }
-        failure { echo "❌ Pipeline failed. Check logs." }
+        failure { echo "❌ Pipeline failed. Check logs above for details." }
     }
 }
