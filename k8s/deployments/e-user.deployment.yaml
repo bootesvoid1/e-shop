@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      volumes:
+        - name: secrets-script-volume
+          emptyDir: {}
+      initContainers:
+        - name: fetch-secrets
+          image: google/cloud-sdk:alpine
+          command: ['/bin/sh', '-c']
+          env:
+            - name: DB_PASSWORD_SECRET_NAME
+              value: "ecommerce-db-password"
+            - name: DB_CONNECTION_NAME_SECRET_NAME
+              value: "ecommerce-db-connection-name"
+            - name: JWT_SECRET_NAME
+              value: "ecommerce-jwt-secret"
+            - name: MAIL_ADDRESS_SECRET_NAME
+              value: "ecommerce-mail-address"
+            - name: MAIL_PASSWORD_SECRET_NAME
+              value: "ecommerce-mail-password"
+            - name: MAIL_HOST_SECRET_NAME
+              value: "ecommerce-mail-host"
+            - name: MAIL_PORT_SECRET_NAME
+              value: "ecommerce-mail-port"
+            # Add others if needed for user service
+          args:
+            - |
+              set -eu
+              SCRIPT_PATH="/mnt/secrets-fetched/secrets.env"
+              echo "# Fetched secrets script for user-service" > $SCRIPT_PATH
+
+              fetch_secret() {
+                local secret_name=$1
+                local env_var_name=$2
+                echo "Fetching secret: $secret_name"
+                secret_value=$(gcloud secrets versions access latest --secret=$secret_name)
+                escaped_secret_value=$(printf '%s\n' "$secret_value" | sed "s/'/'\\\\''/g")
+                echo "export $env_var_name='$escaped_secret_value'" >> $SCRIPT_PATH
+              }
+
+              fetch_secret "$DB_PASSWORD_SECRET_NAME" "DB_PASSWORD"
+              fetch_secret "$DB_CONNECTION_NAME_SECRET_NAME" "DB_CONNECTION_NAME"
+              fetch_secret "$JWT_SECRET_NAME" "JWT_SECRET"
+              fetch_secret "$MAIL_ADDRESS_SECRET_NAME" "MAIL_ADDRESS"
+              fetch_secret "$MAIL_PASSWORD_SECRET_NAME" "MAIL_PASSWORD"
+              fetch_secret "$MAIL_HOST_SECRET_NAME" "MAIL_HOST"
+              fetch_secret "$MAIL_PORT_SECRET_NAME" "MAIL_PORT"
+              # Fetch others for user service...
+
+              echo "User service secrets script created at $SCRIPT_PATH"
+          volumeMounts:
+            - name: secrets-script-volume
+              mountPath: /mnt/secrets-fetched
+      containers:
+        - name: user
+          image: gcr.io/e-shop-deploy/user-service:latest # Use the new specific image
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              if [ -f /mnt/secrets-fetched/secrets.env ]; then
+                echo "Sourcing secrets for user-service"
+                . /mnt/secrets-fetched/secrets.env
+              else
+                echo "Error: User service secrets script not found!" >&2
+                exit 1
+              fi
+              exec node dist/apps/user/main # Run the specific user main file
+          ports:
+            - containerPort: 3002 # Port the user service listens on internally
+          volumeMounts:
+            - name: secrets-script-volume
+              mountPath: /mnt/secrets-fetched
+          env:
+            # Database config (adjust as needed, user might not need direct DB access if it's an API)
+            - name: DB_HOST
+              value: "35.240.49.17" # Your Cloud SQL Public IP
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USERNAME
+              value: "appuser"
+            - name: DB_NAME
+              value: "ecommercedb"
+            # Secrets will be sourced from script
+            - name: DB_PASSWORD
+              value: ""
+            - name: JWT_SECRET
+              value: ""
+            - name: MAIL_ADDRESS
+              value: ""
+            - name: MAIL_PASSWORD
+              value: ""
+            - name: MAIL_HOST
+              value: ""
+            - name: MAIL_PORT
+              value: ""
+          # Consider adding resource requests/limits and health checks here

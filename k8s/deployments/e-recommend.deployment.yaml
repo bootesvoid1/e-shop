@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendation-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recommendation-api
+  template:
+    metadata:
+      labels:
+        app: recommendation-api
+    spec:
+      containers:
+      - name: api
+        image: gcr.io/e-shop-deploy/recommendation-api:latest
+        ports:
+        - containerPort: 8001

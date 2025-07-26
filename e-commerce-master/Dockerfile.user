@@ -1,0 +1,29 @@
+FROM node:20-alpine AS builder
+
+RUN npm install -g pnpm
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm run build # This builds all apps
+
+FROM node:20-alpine AS runtime
+# Install pnpm in the final stage if needed for any runtime scripts
+RUN npm install -g pnpm
+
+WORKDIR /app
+# Copy package files for production dependencies
+COPY package.json pnpm-lock.yaml ./
+# Install ONLY production dependencies
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+
+# Copy built output for the specific app
+COPY --from=builder /app/dist/apps/user ./dist/apps/user
+# Copy any shared libraries or assets needed at runtime if they are not bundled
+COPY --from=builder /app/libs ./libs
+# Add any other necessary files/dirs from builder (e.g., templates, configs)
+# COPY --from=builder /app/apps/user/src/mail/templates ./apps/user/src/mail/templates
+
+EXPOSE 3002
+# Run the specific user service
+CMD ["node", "dist/apps/user/main"]

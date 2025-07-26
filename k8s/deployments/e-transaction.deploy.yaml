@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transaction-service
+  template:
+    metadata:
+      labels:
+        app: transaction-service
+    spec:
+      volumes:
+        - name: secrets-script-volume
+          emptyDir: {}
+      initContainers:
+        - name: fetch-secrets
+          image: google/cloud-sdk:alpine
+          command: ['/bin/sh', '-c']
+          env:
+            - name: DB_PASSWORD_SECRET_NAME
+              value: "ecommerce-db-password"
+            - name: DB_CONNECTION_NAME_SECRET_NAME
+              value: "ecommerce-db-connection-name"
+            - name: JWT_SECRET_NAME
+              value: "ecommerce-jwt-secret"
+            # Add other relevant secrets
+          args:
+            - |
+              set -eu
+              SCRIPT_PATH="/mnt/secrets-fetched/secrets.env"
+              echo "# Fetched secrets script for transaction-service" > $SCRIPT_PATH
+
+              fetch_secret() {
+                local secret_name=$1
+                local env_var_name=$2
+                echo "Fetching secret: $secret_name"
+                secret_value=$(gcloud secrets versions access latest --secret=$secret_name)
+                escaped_secret_value=$(printf '%s\n' "$secret_value" | sed "s/'/'\\\\''/g")
+                echo "export $env_var_name='$escaped_secret_value'" >> $SCRIPT_PATH
+              }
+
+              fetch_secret "$DB_PASSWORD_SECRET_NAME" "DB_PASSWORD"
+              fetch_secret "$DB_CONNECTION_NAME_SECRET_NAME" "DB_CONNECTION_NAME"
+              fetch_secret "$JWT_SECRET_NAME" "JWT_SECRET"
+              # Fetch others...
+
+              echo "Transaction service secrets script created at $SCRIPT_PATH"
+          volumeMounts:
+            - name: secrets-script-volume
+              mountPath: /mnt/secrets-fetched
+      containers:
+        - name: transaction
+          image: gcr.io/e-shop-deploy/transaction-service:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              if [ -f /mnt/secrets-fetched/secrets.env ]; then
+                echo "Sourcing secrets for transaction-service"
+                . /mnt/secrets-fetched/secrets.env
+              else
+                echo "Error: Transaction service secrets script not found!" >&2
+                exit 1
+              fi
+              exec node dist/apps/transaction/main
+          ports:
+            - containerPort: 3005
+          volumeMounts:
+            - name: secrets-script-volume
+              mountPath: /mnt/secrets-fetched
+          env:
+            - name: DB_HOST
+              value: "35.240.49.17"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USERNAME
+              value: "appuser"
+            - name: DB_NAME
+              value: "ecommercedb"
+            - name: DB_PASSWORD
+              value: ""
+            - name: JWT_SECRET
+              value: ""
+          # Add resource requests/limits and health checks

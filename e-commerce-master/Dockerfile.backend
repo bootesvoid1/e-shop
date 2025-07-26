@@ -1,11 +1,12 @@
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 
+RUN npm install -g pnpm
 WORKDIR /app
-COPY e-commerce-master/package*.json ./
-RUN npm ci --only=production
-
+COPY e-commerce-master/package.json e-commerce-master/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY e-commerce-master/. .
-RUN npm run build
+RUN pnpm run build
+RUN pnpm install --prod --frozen-lockfile
 
-EXPOSE 3000 3002 3003 3005
+EXPOSE 3000
 CMD ["node", "dist/apps/e-commerce/main"]
