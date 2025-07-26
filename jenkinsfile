@@ -6,8 +6,12 @@ pipeline {
         GCR_REGISTRY = 'gcr.io'
         BACKEND_IMAGE = 'ecommerce-backend'
         FRONTEND_IMAGE = 'ecommerce-frontend'
+        USER_SERVICE_IMAGE = 'user-service'
+        PRODUCT_SERVICE_IMAGE = 'product-service'
+        TRANSACTION_SERVICE_IMAGE = 'transaction-service'
         RECOMMENDATION_API_IMAGE = 'recommendation-api' 
         DOCKER_TAG = "${env.BUILD_NUMBER}"
+        GCP_KEY      = credentials('gcp-service-account-key')
         GCP_CREDENTIALS_ID = 'gcp-service-account-key'
         // Consider storing sensitive Docker Scout tokens in Jenkins Credentials if needed for advanced features
     }
@@ -43,6 +47,12 @@ pipeline {
                         docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${DOCKER_TAG} -f e-commerce-front-master/Dockerfile.frontend e-commerce-front-master/.
                         echo "🏗️ Building Recommendation API Image..."
                         docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} recommendation-service/.
+                        echo "🏗️ Building User Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.user e-commerce-master/.
+                        echo "🏗️ Building Product Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.product e-commerce-master/.
+                        echo "🏗️ Building Transaction Service Image..."
+                        docker build -t ${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} -f e-commerce-master/Dockerfile.transaction e-commerce-master/.
                     """
                 }
             }
@@ -67,7 +77,18 @@ pipeline {
                         # Scout the recommendation API image
                         echo "🔍 Scanning Recommendation API Image..."
                         docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > api-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for API (check report)"
+                        # --- NEW: Scout the User Service image ---
+                        echo "🔍 Scanning User Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > user-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for User Service (check report)"
 
+                        # --- NEW: Scout the Product Service image ---
+                        echo "🔍 Scanning Product Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > product-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for Product Service (check report)"
+
+                        # --- NEW: Scout the Transaction Service image ---
+                        echo "🔍 Scanning Transaction Service Image..."
+                        docker scout cves ${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${DOCKER_TAG} --exit-code --format sarif > transaction-service-scout-report.sarif || echo "⚠️ Vulnerabilities found or scout failed for Transaction Service (check report)"
+                        # --- END NEW ---
                         echo "✅ Docker Scout scans completed (reports generated if SARIF plugin is used)"
                     """
                     // Optional: Archive SARIF reports if using Jenkins SARIF plugin for visualization
@@ -106,8 +127,11 @@ pipeline {
         stage('Deploy to GKE') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: env.GCP_CREDENTIALS_ID, variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                    withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
                         sh '''
+                            echo "$GCP_SA_JSON" > /tmp/gcp-key.json
+                            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
                             echo "☸️ Authenticating with GCP..."
                             gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
                             echo "☸️ Getting GKE cluster credentials..."

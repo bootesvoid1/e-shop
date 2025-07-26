@@ -27,7 +27,7 @@ RUN pnpm run build
 FROM nginx:alpine
 
 # Copy built application to nginx
-COPY --from=builder /app/dist/e-commerce-front /usr/share/nginx/html
+COPY --from=builder /app/dist/e-commerce-front/browser /usr/share/nginx/html
 
 # Create nginx config for SPA routing
 RUN echo 'server { \

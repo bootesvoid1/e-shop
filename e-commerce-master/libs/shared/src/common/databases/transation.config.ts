@@ -1,11 +1,13 @@
 import { ConfigService } from '@nestjs/config';
-import { config } from 'dotenv';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { CartItemEntity } from './entities/cart/cart_items.entity';
 import { CartEntity } from './entities/cart/cart.entity';
 import { OrderEntity } from './entities/order/order.entity';
 import { OrderItemEntity } from './entities/order/order-item.entity';
-
+/* load dotenv only in non-production */
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 config();
 
 const configService = new ConfigService();

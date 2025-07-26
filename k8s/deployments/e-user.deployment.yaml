@@ -34,7 +34,7 @@ spec:
               value: "ecommerce-mail-host"
             - name: MAIL_PORT_SECRET_NAME
               value: "ecommerce-mail-port"
-            # Add others if needed for user service
+            
           args:
             - |
               set -eu
@@ -106,4 +106,4 @@ spec:
               value: ""
             - name: MAIL_PORT
               value: ""
-          # Consider adding resource requests/limits and health checks here
+         

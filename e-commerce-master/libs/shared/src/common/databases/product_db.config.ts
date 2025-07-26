@@ -1,5 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import { config } from 'dotenv';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { CategoryEntity } from './entities/product/category.entity';
 import { ManufacturersEntity } from './entities/product/manufacturer.entity';
@@ -13,7 +12,10 @@ import { VariantValueEntity } from './entities/product/_variant/variant-value.en
 import { ProductVariantEntity } from './entities/product/_variant/product-variant.entity';
 import { SpecificationEntity } from './entities/product/specifications.entity';
 import { SpecificationGroupEntity } from './entities/product/specifications-group.entity';
-
+/* load dotenv only in non-production */
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 config();
 
 const configService = new ConfigService();

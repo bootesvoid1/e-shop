@@ -1,8 +1,10 @@
 import { ConfigService } from '@nestjs/config';
-import { config } from 'dotenv';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { UsersEntity } from './entities/user.entity';
-
+/* load dotenv only in non-production */
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 config();
 
 const configService = new ConfigService();
