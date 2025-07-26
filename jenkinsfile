@@ -90,10 +90,10 @@ pipeline {
 
                             echo "🚀 Downloading Kubernetes manifests from GCS..."
                             # --- NEW ---
-                            # IMPORTANT: Replace 'gs://your-actual-bucket-name/path/to/k8s/folder' with your real GCS path
+                            # IMPORTANT: Replace 'gs://e-shop-bucket-1/k8s/ with your real GCS path
                             # Example: gs://my-e-shop-bucket/k8s-configs/
                             mkdir -p /tmp/k8s-manifests
-                            gsutil -m cp -r gs://your-actual-bucket-name/path/to/k8s/folder/* /tmp/k8s-manifests/
+                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp/k8s-manifests/
                             # --- END NEW ---
 
                             echo "🚀 Applying Kubernetes manifests..."
