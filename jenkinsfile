@@ -110,6 +110,7 @@ spec:
                         withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
                             sh '''
                                 echo "Setting up Kaniko authentication..."
+                                mkdir -p /tmp
                                 mkdir -p /kaniko/.docker
                                 
                                 # Create temporary file for service account
