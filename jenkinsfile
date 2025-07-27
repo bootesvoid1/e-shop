@@ -61,7 +61,7 @@ spec:
         stage('Build & Push') {
             steps {
                 container('kaniko') {
-                    withCredentials([file(credentialsId: 'jenkins-sa.json', variable: 'GC_KEY')]) {
+                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
                         script {
                             def images = [
                                 [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
