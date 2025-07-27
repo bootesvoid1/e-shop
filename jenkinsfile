@@ -19,8 +19,8 @@ spec:
     image: gcr.io/kaniko-project/executor:debug
     command: [sleep, infinity]
     resources:
-      requests: { memory: "1Gi", cpu: "500m" }
-      limits:   { memory: "2Gi", cpu: "1000m"}
+      requests: { memory: "512Mi", cpu: "250m" }
+      limits:   { memory: "1Gi", cpu: "500m"}
     volumeMounts:
     - name: gcp-key
       mountPath: /kaniko/key.json
@@ -102,7 +102,7 @@ spec:
                     withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'KEY')]) {
                         sh '''
                             export GOOGLE_APPLICATION_CREDENTIALS="$KEY"
-                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
+                            gcloud container clusters get-credentials ecommerce-cluster-v2 --zone=europe-west1-b --project=$PROJECT_ID
                             gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
                             sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
                             sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
