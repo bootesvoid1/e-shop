@@ -118,7 +118,24 @@ spec:
         }
     }
 }
-
+        stage('Setup GCP Auth') {
+    steps {
+        container('gcloud') {               // gcloud has gcloud & base64
+            withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
+                sh '''
+                    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
+                    cp "$GC_KEY" /tmp/key.json
+                    gcloud auth activate-service-account --key-file=/tmp/key.json
+                    gcloud auth configure-docker gcr.io
+                    # write the JSON-based Docker config for Kaniko
+                    mkdir -p /kaniko/.docker
+                    echo '{"auths":{"gcr.io":{"auth":"'$(base64 -w0 /tmp/key.json)'"}}}' > /kaniko/.docker/config.json
+                    echo "✅ Kaniko Docker config ready"
+                '''
+            }
+        }
+    }
+}
         stage('Build Images') {
             steps {
                 container('kaniko') {
