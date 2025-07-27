@@ -66,7 +66,13 @@ spec:
 
     environment {
         PROJECT_ID                 = 'e-shop-deploy'
+        // Option 1: Use GCR (legacy)
         GCR_REGISTRY               = 'gcr.io'
+        // Option 2: Use Artifact Registry (recommended)
+        // REGION                   = 'europe-west1'  // or your preferred region
+        // AR_REGISTRY              = 'europe-west1-docker.pkg.dev'
+        // REPOSITORY_NAME          = 'e-shop-repo'   // create this in AR first
+        
         BACKEND_IMAGE              = 'ecommerce-backend'
         FRONTEND_IMAGE             = 'ecommerce-frontend'
         USER_SERVICE_IMAGE         = 'user-service'
@@ -117,7 +123,11 @@ spec:
                                     echo "🔧 Setting up GCloud authentication..."
                                     export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
                                     gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+                                    
+                                    # Configure Docker for both GCR and Artifact Registry
                                     gcloud auth configure-docker gcr.io --quiet
+                                    # gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet  # Uncomment if using AR
+                                    
                                     echo "✅ GCloud authentication configured"
                                 '''
                             }
@@ -149,6 +159,9 @@ spec:
     "gcr.io": {
       "auth": "$(echo -n "oauth2accesstoken:$ACCESS_TOKEN" | base64 -w 0)"
     }
+  },
+  "credHelpers": {
+    "gcr.io": "gcloud"
   }
 }
 EOF
