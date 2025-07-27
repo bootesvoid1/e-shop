@@ -105,30 +105,14 @@ spec:
         stage('Setup GCP Auth') {
     steps {
         container('kaniko') {
-            withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
-                script {
-                    if (!env.GCP_SA_JSON?.trim()?.startsWith('{')) {
-                        error '❌ GCP service-account JSON is empty or invalid.'
-                    }
-
-                    // Base-64 encode the whole key in Groovy
-                    def encoded = Base64.getEncoder()
-                                      .encodeToString("_json_key:${env.GCP_SA_JSON}".bytes)
-
-                    def cfg = """\
-                    {
-                      "auths": {
-                        "gcr.io": { "auth": "${encoded}" },
-                        "us.gcr.io": { "auth": "${encoded}" },
-                        "eu.gcr.io": { "auth": "${encoded}" },
-                        "asia.gcr.io": { "auth": "${encoded}" }
-                      }
-                    }"""
-
-                    sh 'mkdir -p /kaniko/.docker'
-                    writeFile file: '/kaniko/.docker/config.json', text: cfg
-                    echo '✅ Kaniko auth configured'
-                }
+            withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
+                sh '''
+                    mkdir -p /kaniko/.docker
+                    export GOOGLE_APPLICATION_CREDENTIALS=${GC_KEY}
+                    gcloud auth activate-service-account --key-file=${GC_KEY}
+                    gcloud auth configure-docker gcr.io
+                    echo "✅ Kaniko authenticated to GCR"
+                '''
             }
         }
     }
