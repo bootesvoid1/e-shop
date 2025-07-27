@@ -96,7 +96,7 @@ spec:
         stage('Deploy') {
             steps {
                 container('gcloud') {
-                    withCredentials([file(credentialsId: 'jenkins-sa.json', variable: 'GC_KEY')]) {
+                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
                         sh '''
                             export GOOGLE_APPLICATION_CREDENTIALS="$GC_KEY"
                             gcloud container clusters get-credentials ecommerce-cluster-v2 \
