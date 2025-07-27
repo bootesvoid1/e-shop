@@ -1,7 +1,6 @@
 pipeline {
     agent {
         kubernetes {
-            // setting app kamiko agent 
             yaml '''
 apiVersion: v1
 kind: Pod
@@ -19,32 +18,23 @@ spec:
   containers:
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
-    command: [sleep, infinity]
+    command: ["sleep", "infinity"]
     resources:
       requests: { memory: "512Mi", cpu: "50m" }
       limits:   { memory: "1Gi", cpu: "100m" }
     volumeMounts:
-    - name: gcp-key
-      mountPath: /kaniko/key.json
-      readOnly: true
     - name: workspace
       mountPath: /workspace
   - name: gcloud
     image: google/cloud-sdk:slim
-    command: [sleep, infinity]
+    command: ["sleep", "infinity"]
     resources:
       requests: { memory: "512Mi", cpu: "250m" }
       limits:   { memory: "1Gi", cpu: "500m" }
     volumeMounts:
-    - name: gcp-key
-      mountPath: /kaniko/key.json
-      readOnly: true
     - name: workspace
       mountPath: /workspace
   volumes:
-  - name: gcp-key
-    secret:
-      secretName: gcp-service-account-key
   - name: workspace
     emptyDir: {}
 '''
@@ -52,13 +42,14 @@ spec:
     }
 
     environment {
-        PROJECT_ID = 'e-shop-deploy'
-        REGION     = 'europe-west1'
-        REPO       = 'e-shop-repo'
-        TAG        = "${BUILD_NUMBER}"
-        DB_PRODUCT_NAME = "e_shop_product_db"
-        DB_USER_NAME = "e_shop_auth_db"
-        DB_CART_NAME = "e_shop_cart_db"
+        PROJECT_ID          = 'e-shop-deploy'
+        REGION              = 'europe-west1'
+        REPO                = 'e-shop-repo'
+        TAG                 = "${BUILD_NUMBER}"
+
+        DB_PRODUCT_NAME     = "e_shop_product_db"
+        DB_USER_NAME        = "e_shop_auth_db"
+        DB_CART_NAME        = "e_shop_cart_db"
         DB_TRANSACTION_NAME = "e_shop_transaction_db"
     }
 
@@ -70,33 +61,31 @@ spec:
         stage('Build & Push') {
             steps {
                 container('kaniko') {
-                    script {
-                        def images = [
-                            [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
-                            [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
-                            [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
-                            [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
-                            [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
-                            [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
-                        ]
+                    withCredentials([file(credentialsId: 'jenkins-sa.json', variable: 'GC_KEY')]) {
+                        script {
+                            def images = [
+                                [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
+                                [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
+                                [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
+                                [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
+                                [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
+                                [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
+                            ]
 
-                        images.each { img ->
-                            try {
+                            images.each { img ->
                                 def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                                 sh """
+                                    export GOOGLE_APPLICATION_CREDENTIALS=\${GC_KEY}
                                     /kaniko/executor \
-                                    --context=. \
-                                    --dockerfile=${img.df} \
-                                    ${envVars} \
-                                    --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                                    --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                    --google-credentials-file=/kaniko/key.json \
-                                    --cache=true \
-                                    --cleanup --verbosity=info
+                                      --context=. \
+                                      --dockerfile=${img.df} \
+                                      ${envVars} \
+                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
+                                      --cache=true \
+                                      --cleanup \
+                                      --verbosity=info
                                 """
-                            } catch (Exception e) {
-                                echo "Failed to build ${img.name}: ${e.message}"
-                                throw e
                             }
                         }
                     }
@@ -107,10 +96,12 @@ spec:
         stage('Deploy') {
             steps {
                 container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'KEY')]) {
+                    withCredentials([file(credentialsId: 'jenkins-sa.json', variable: 'GC_KEY')]) {
                         sh '''
-                            export GOOGLE_APPLICATION_CREDENTIALS="$KEY"
-                            gcloud container clusters get-credentials ecommerce-cluster-v2 --zone=europe-west1-b --project=$PROJECT_ID
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GC_KEY"
+                            gcloud container clusters get-credentials ecommerce-cluster-v2 \
+                                --zone=europe-west1-b \
+                                --project=$PROJECT_ID
                             gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
                             sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
                             sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
