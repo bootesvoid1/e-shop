@@ -10,12 +10,12 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:latest
     resources:
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
+        requests:
+            memory: "128Mi"
+            cpu:    "50m"
+        limits:
+            memory: "512Mi"
+            cpu:    "250m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /home/jenkins/agent
@@ -26,12 +26,12 @@ spec:
     args:
     - infinity
     resources:
-      requests:
-        memory: "1Gi"
-        cpu: "500m"
-      limits:
-        memory: "2Gi"
-        cpu: "1000m"
+        requests:
+            memory: "128Mi"
+            cpu:    "50m"
+        limits:
+            memory: "512Mi"
+            cpu:    "250m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /workspace
@@ -43,12 +43,12 @@ spec:
     args:
     - infinity
     resources:
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
+        requests:
+            memory: "128Mi"
+            cpu:    "50m"
+        limits:
+            memory: "512Mi"
+            cpu:    "250m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /workspace
@@ -120,6 +120,19 @@ spec:
             }
         }
     }
+}       stage('Create Kaniko Docker Config') {
+            steps {
+                container('kaniko') {
+                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
+                        sh '''
+                            mkdir -p /kaniko/.docker
+                            # build the JSON auth block
+                            echo '{"auths":{"gcr.io":{"auth":"'$(base64 -w0 "$GC_KEY")'"}}}' > /kaniko/.docker/config.json
+                            echo "✅ Kaniko Docker config created"
+                        '''
+                    }
+                }
+            }
 }
         stage('Build Images') {
             steps {
