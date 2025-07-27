@@ -119,10 +119,10 @@ spec:
     }
 }
         stage('Setup GCP Auth') {
-    steps {
-        container('gcloud') {               // gcloud has gcloud & base64
-            withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
-                sh '''
+            steps {
+                container('gcloud') {               // gcloud has gcloud & base64
+                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
+                   sh '''
                     export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
                     cp "$GC_KEY" /tmp/key.json
                     gcloud auth activate-service-account --key-file=/tmp/key.json
