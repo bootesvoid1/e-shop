@@ -5,473 +5,90 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
-  # Consider removing or verifying 'jenkins' SA has secret creation perms
-  # serviceAccountName: jenkins
+  serviceAccountName: jenkins
   containers:
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    resources:
-      requests:
-        memory: "128Mi"
-        cpu: "50m"
-      limits:
-        memory: "512Mi"
-        cpu: "250m"
-    volumeMounts:
-    - name: workspace-volume
-      mountPath: /home/jenkins/agent
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
-    command:
-    - sleep
-    args:
-    - infinity
+    command: [sleep, infinity]
     resources:
-      requests:
-        memory: "512Mi"
-        cpu: "200m"
-      limits:
-        memory: "1Gi"
-        cpu: "500m"
+      requests: { memory: "512Mi", cpu: "200m" }
+      limits:   { memory: "1Gi",  cpu: "500m" }
     volumeMounts:
-    - name: workspace-volume
-      mountPath: /workspace
-    # Mount the dynamically created secret
-    - name: kaniko-secret-volume
-      mountPath: /kaniko/.docker
+    - name: gcp-key
+      mountPath: /kaniko/key.json
       readOnly: true
-    workingDir: /workspace
-  - name: gcloud
-    image: google/cloud-sdk:latest
-    command:
-    - sleep
-    args:
-    - infinity
-    resources:
-      requests:
-        memory: "128Mi"
-        cpu: "50m"
-      limits:
-        memory: "512Mi"
-        cpu: "250m"
-    volumeMounts:
-    - name: workspace-volume
+    - name: workspace
       mountPath: /workspace
   volumes:
-  - name: workspace-volume
-    emptyDir: {}
-  # Define the volume as a secret, to be created by the pipeline
-  - name: kaniko-secret-volume
+  - name: gcp-key
     secret:
-      secretName: "kaniko-secret-${BUILD_NUMBER}" # Unique name per build
-  restartPolicy: Never
+      secretName: gcp-service-account-key   # <-- upload this once
+  - name: workspace
+    emptyDir: {}
 '''
         }
     }
+
     environment {
-        PROJECT_ID                 = 'e-shop-deploy'
-        GCR_REGISTRY               = 'gcr.io'
-        BACKEND_IMAGE              = 'ecommerce-backend'
-        FRONTEND_IMAGE             = 'ecommerce-frontend'
-        USER_SERVICE_IMAGE         = 'user-service'
-        PRODUCT_SERVICE_IMAGE      = 'product-service'
-        TRANSACTION_SERVICE_IMAGE  = 'transaction-service'
-        RECOMMENDATION_API_IMAGE   = 'recommendation-api'
-        DOCKER_TAG                 = "${env.BUILD_NUMBER}"
-         GCP_CREDENTIALS_ID         = 'gcp-service-account-key' 
-         JENKINS_NAMESPACE          = 'default'
+        PROJECT_ID = 'e-shop-deploy'
+        REGISTRY   = 'gcr.io'
+        TAG        = "${BUILD_NUMBER}"
     }
+
     stages {
-        stage('Checkout Code') {
-            steps {
-                checkout scm
-                script {
-                    echo "✅ Source code checked out successfully"
-                    sh '''
-                        echo "=== WORKSPACE CONTENTS ==="
-                        ls -la
-                        echo "=== CHECKING REQUIRED DIRECTORIES ==="
-                        ls -la e-commerce-master/ || echo "❌ e-commerce-master not found"
-                        ls -la e-commerce-front-master/ || echo "❌ e-commerce-front-master not found"
-                        ls -la recommendation-service/ || echo "❌ recommendation-service not found"
-                        echo "=== CHECKING DOCKERFILES ==="
-                        find . -name "Dockerfile*" -type f
-                        find . -name "dockerfile*" -type f
-                    '''
-                }
-            }
+        stage('Checkout') {
+            steps { checkout scm }
         }
 
-        stage('Security Scan - Secrets') {
-            steps {
-                script {
-                    echo "🔍 Running secret scanning (placeholder)"
-                    // Implement actual secret scanning tool here (e.g., git-secrets, detect-secrets, TruffleHog)
-                }
-            }
-        }
-        stage('Setup Kaniko Secret') {
-            steps {
-                container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
-                        script {
-                            def secretName = "kaniko-secret-${BUILD_NUMBER}"
-                            echo "🔧 Creating Kubernetes Secret '${secretName}' for Kaniko authentication..."
-                            sh '''
-                                echo "🔧 Setting up temporary GCloud auth to create secret..."
-                                export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
-                                gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                                # Ensure kubectl is configured (e.g., if using workload identity, this might be automatic)
-                                # If not, you might need to get cluster credentials here too, but usually not needed for in-cluster ops if SA is correct.
-
-                                echo "🔧 Generating Kaniko Docker config.json..."
-                                mkdir -p /tmp/kaniko-auth
-
-                                # Base-64 encode the JSON key for the standard Docker auth format using _json_key
-                                AUTH=$(printf "_json_key:$(cat $GCP_SA_KEY)" | base64 -w0)
-
-                                cat > /tmp/kaniko-auth/config.json <<EOF
-                                            {
-                                            "auths": {
-                                                "gcr.io": {
-                                                "auth": "$AUTH"
-                                                },
-                                                "us.gcr.io": {
-                                                "auth": "$AUTH"
-                                                },
-                                                "eu.gcr.io": {
-                                                "auth": "$AUTH"
-                                                }
-                                            }
-                                            }
-                                            EOF
-                                echo "📋 Generated config.json content:"
-                                cat /tmp/kaniko-auth/config.json
-
-                                echo "🔧 Creating Kubernetes Secret '${secretName}' in namespace '${JENKINS_NAMESPACE}'..."
-                                kubectl create secret generic ${secretName} \
-                                    --from-file=config.json=/tmp/kaniko-auth/config.json \
-                                    --namespace=${JENKINS_NAMESPACE} \
-                                    --dry-run=client -o yaml | kubectl apply -f -
-
-                                if [ $? -eq 0 ]; then
-                                    echo "✅ Kubernetes Secret '${secretName}' created successfully."
-                                else
-                                    echo "❌ Failed to create Kubernetes Secret '${secretName}'."
-                                    exit 1
-                                fi
-                            '''
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Setup Authentication') {
-            parallel {
-                stage('Setup GCloud Auth') {
-                    steps {
-                        container('gcloud') {
-                            withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
-                                sh '''
-                                    echo "🔧 Setting up GCloud authentication..."
-                                    export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
-                                    gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                                    # Configure Docker for gcloud commands if needed (e.g., docker pull/push outside Kaniko)
-                                    # gcloud auth configure-docker gcr.io --quiet # Often not needed if Kaniko handles push
-                                    echo "✅ GCloud authentication configured"
-                                '''
-                            }
-                        }
-                    }
-                }               
-                
-            } 
-        }     
-             
-                
-
-                    
-                
-           
-        stage('Build Images') {
+        stage('Build & Push') {
             steps {
                 container('kaniko') {
                     script {
-                        echo "🔨 Building Docker images with Kaniko..."
-                        // Define build configurations - VERIFY THESE PATHS EXIST IN YOUR REPO
-                        def buildConfigs = [
-                            [
-                                name: "BACKEND",
-                                contextDir: "e-commerce-master",
-                                dockerfile: "e-commerce-master/Dockerfile.backend", // Verify path
-                                image: env.BACKEND_IMAGE
-                            ],
-                            [
-                                name: "FRONTEND",
-                                contextDir: "e-commerce-front-master",
-                                dockerfile: "e-commerce-front-master/dockerfile.frontend", // Verify path & case
-                                image: env.FRONTEND_IMAGE
-                            ],
-                            [
-                                name: "RECOMMENDATION API",
-                                contextDir: "recommendation-service",
-                                dockerfile: "recommendation-service/Dockerfile", // Verify path
-                                image: env.RECOMMENDATION_API_IMAGE
-                            ],
-                            [
-                                name: "USER SERVICE",
-                                contextDir: "e-commerce-master",
-                                dockerfile: "e-commerce-master/Dockerfile.user", // Verify path
-                                image: env.USER_SERVICE_IMAGE
-                            ],
-                            [
-                                name: "PRODUCT SERVICE",
-                                contextDir: "e-commerce-master",
-                                dockerfile: "e-commerce-master/Dockerfile.product", // Verify path
-                                image: env.PRODUCT_SERVICE_IMAGE
-                            ],
-                            [
-                                name: "TRANSACTION SERVICE",
-                                contextDir: "e-commerce-master",
-                                dockerfile: "e-commerce-master/Dockerfile.transaction", // Verify path
-                                image: env.TRANSACTION_SERVICE_IMAGE
-                            ]
+                        def images = [
+                            [ctx: 'e-commerce-master',       df: 'Dockerfile.backend',  name: 'ecommerce-backend'],
+                            [ctx: 'e-commerce-front-master', df: 'dockerfile.frontend', name: 'ecommerce-frontend'],
+                            [ctx: 'recommendation-service',  df: 'Dockerfile',          name: 'recommendation-api'],
+                            [ctx: 'e-commerce-master',       df: 'Dockerfile.user',     name: 'user-service'],
+                            [ctx: 'e-commerce-master',       df: 'Dockerfile.product',  name: 'product-service'],
+                            [ctx: 'e-commerce-master',       df: 'Dockerfile.transaction', name: 'transaction-service']
                         ]
 
-                        // Check if required directories/files exist before building
-                        boolean allPreconditionsMet = true
-                        buildConfigs.each { config ->
+                        images.each { img ->
                             sh """
-                                echo "=== CHECKING PRECONDITIONS FOR ${config.name} ==="
-                                CONTEXT_EXISTS=\$([ -d "${config.contextDir}" ] && echo "YES" || echo "NO")
-                                DOCKERFILE_EXISTS=\$([ -f "${config.dockerfile}" ] && echo "YES" || echo "NO")
-                                echo "   Context: ${config.contextDir} (exists: \$CONTEXT_EXISTS)"
-                                echo "   Dockerfile: ${config.dockerfile} (exists: \$DOCKERFILE_EXISTS)"
-                                if [ "\$CONTEXT_EXISTS" != "YES" ] || [ "\$DOCKERFILE_EXISTS" != "YES" ]; then
-                                    echo "❌ ${config.name}: Missing required files/directories."
-                                    exit 1 # Fail the script step if preconditions fail
-                                fi
+                                /kaniko/executor \
+                                  --context=\"\$(pwd)/${img.ctx}\" \
+                                  --dockerfile=\"\$(pwd)/${img.ctx}/${img.df}\" \
+                                  --destination=${REGISTRY}/${PROJECT_ID}/${img.name}:${TAG} \
+                                  --destination=${REGISTRY}/${PROJECT_ID}/${img.name}:latest \
+                                  --cleanup --verbosity=info
                             """
                         }
-
-
-                        // Build each image
-                        buildConfigs.each { config ->
-                            sh """
-                                echo "=== BUILDING ${config.name} IMAGE ==="
-
-                                # Build with Kaniko (using config.json from mounted secret volume)
-                                /kaniko/executor \\
-                                  --context="\$(pwd)/${config.contextDir}" \\
-                                  --dockerfile="\$(pwd)/${config.dockerfile}" \\
-                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${config.image}:${DOCKER_TAG} \\
-                                  --destination=${GCR_REGISTRY}/${PROJECT_ID}/${config.image}:latest \\
-                                  --cache=true \\ # Ensure cache is configured or remove if not needed
-                                  --cleanup \\
-                                  --verbosity=info
-
-                                if [ \$? -eq 0 ]; then
-                                    echo "✅ ${config.name} image built and pushed successfully"
-                                else
-                                    echo "❌ Failed to build/push ${config.name} image"
-                                    exit 1
-                                fi
-                                echo ""
-                            """
-                        }
-                        echo "🎉 All images built successfully!"
                     }
                 }
             }
         }
 
-        stage('Verify Images') {
+        stage('Deploy') {
             steps {
                 container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
+                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'KEY')]) {
                         sh '''
-                            echo "🔍 Verifying pushed images..."
-                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
-                            # Re-authenticate gcloud for this step
-                            gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-
-                            # List images in registry
-                            echo "Images in registry:"
-                            gcloud container images list --repository=${GCR_REGISTRY}/${PROJECT_ID} || echo "⚠️  Failed to list images"
-
-                            # Check specific image tags
-                            echo "Image tags for build $BUILD_NUMBER:"
-                            for image in $BACKEND_IMAGE $FRONTEND_IMAGE $USER_SERVICE_IMAGE $PRODUCT_SERVICE_IMAGE $TRANSACTION_SERVICE_IMAGE $RECOMMENDATION_API_IMAGE; do
-                                echo "Checking $image:$BUILD_NUMBER..."
-                                gcloud container images list-tags ${GCR_REGISTRY}/${PROJECT_ID}/$image --filter="tags:$BUILD_NUMBER" --format="table(digest,tags,timestamp)" || echo "⚠️  Image $image:$BUILD_NUMBER not found/listing failed"
-                            done
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to GKE') {
-            steps {
-                container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
-                        sh '''
-                            echo "🔧 Setting up GCloud authentication for deployment..."
-                            export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
-                            # Activate service account (redundant if pod SA has perms, but good practice)
-                            gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-
-                            # Get GKE cluster credentials
-                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
-                            if [ \$? -ne 0 ]; then
-                              echo "❌ Failed to get GKE credentials"
-                              exit 1
-                            fi
-
-                            echo "📥 Downloading Kubernetes manifests from GCS..."
-                            mkdir -p /tmp/k8s-manifests/deployments
-                            mkdir -p /tmp/k8s-manifests/services
-
-                            # Download manifests with error handling
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/deployments/* /tmp/k8s-manifests/deployments/
-                            if [ \$? -ne 0 ]; then
-                                echo "❌ Failed to download deployments from GCS"
-                                exit 1
-                            else
-                                echo "✅ Deployments downloaded successfully"
-                            fi
-
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/services/* /tmp/k8s-manifests/services/
-                            if [ \$? -ne 0 ]; then
-                                echo "❌ Failed to download services from GCS"
-                                exit 1
-                            else
-                                 echo "✅ Services downloaded successfully"
-                            fi
-
-                            echo "📋 Downloaded manifests:"
-                            find /tmp/k8s-manifests -name "*.yaml" -o -name "*.yml"
-
-                            echo "🔄 Updating image tags in deployments..."
-                            find /tmp/k8s-manifests/deployments -name "*.yaml" -o -name "*.yml" | while read file; do
-                                echo "Updating $file..."
-                                # Update :latest tag
-                                sed -i.bak "s|:latest|:${BUILD_NUMBER}|g" "$file"
-                                # Update specific image references (more robust)
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                sed -i.bak "s|${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:[^'\"]*|${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:${BUILD_NUMBER}|g" "$file"
-                                # Optional: Remove backup files created by sed -i.bak
-                                rm -f "$file.bak"
-                            done
-
-                            echo "🚀 Applying Kubernetes Deployments..."
-                            kubectl apply -f /tmp/k8s-manifests/deployments/ --validate=false
-                            if [ \$? -ne 0 ]; then
-                                echo "❌ Failed to apply deployments"
-                                kubectl get events --sort-by=.metadata.creationTimestamp
-                                exit 1
-                            else
-                                echo "✅ Deployments applied successfully"
-                            fi
-
-                            echo "🚀 Applying Kubernetes Services..."
-                            kubectl apply -f /tmp/k8s-manifests/services/ --validate=false
-                            if [ \$? -ne 0 ]; then
-                                echo "❌ Failed to apply services"
-                                kubectl get events --sort-by=.metadata.creationTimestamp
-                                exit 1
-                            else
-                                echo "✅ Services applied successfully"
-                            fi
-
-                            echo "⏳ Waiting for deployments to be ready..."
-                            kubectl rollout status deployment --all --timeout=600s
-                            ROLLOUT_STATUS=\$?
-                            if [ \$ROLLOUT_STATUS -eq 0 ]; then
-                                echo "✅ All deployments are ready!"
-                            else
-                                echo "⚠️  Some deployments may not be ready (timeout or error), checking status..."
-                                kubectl get deployments
-                                kubectl get pods --all-namespaces # Show all pods for better debugging
-                                # Decide if failure here should stop the pipeline
-                                # exit \$ROLLOUT_STATUS # Uncomment if you want pipeline to fail on rollout timeout/error
-                            fi
-
-                            echo "📊 Final deployment status:"
-                            kubectl get deployments,services,pods -o wide
-                            echo "✅ Deployment completed successfully!"
+                            export GOOGLE_APPLICATION_CREDENTIALS="$KEY"
+                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=e-shop-deploy
+                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
+                            sed -i "s|:latest|:${BUILD_NUMBER}|g" /tmp/deployments/*.yaml
+                            kubectl apply -f /tmp/deployments/
+                            kubectl apply -f /tmp/services/
                         '''
                     }
                 }
             }
         }
     }
+
     post {
-        always {
-            echo "🧹 Cleaning up…"
-            // --- CHANGED/ADDED: Clean up the dynamically created secret ---
-            script {
-                def secretName = "kaniko-secret-${BUILD_NUMBER}"
-                echo "🧹 Attempting to delete temporary Kubernetes Secret '${secretName}'..."
-                try {
-                    // Use a container that has kubectl, e.g., gcloud
-                    container('gcloud') {
-                         sh """
-                            # Optional: Re-authenticate if needed for cleanup, though often not necessary for in-cluster ops
-                            # export GOOGLE_APPLICATION_CREDENTIALS=\$(pwd)/${env.GCP_CREDENTIALS_ID} # Might need path handling
-                            # gcloud auth activate-service-account --key-file=\$(pwd)/${env.GCP_CREDENTIALS_ID}
-                            kubectl delete secret ${secretName} --namespace=${env.JENKINS_NAMESPACE} --ignore-not-found=true
-                            if [ \$? -eq 0 ]; then
-                                echo "✅ Temporary Kubernetes Secret '${secretName}' deleted."
-                            else
-                                echo "⚠️  Failed to delete temporary Kubernetes Secret '${secretName}', it might not exist."
-                            fi
-                         """
-                    }
-                } catch (e) {
-                    echo "⚠️  Exception during secret cleanup: ${e}"
-                }
-            }
-            sh '''
-                # Clean up other temporary files
-                rm -rf /tmp/k8s-manifests || true
-                rm -rf /tmp/kaniko-auth || true # Clean up temp auth file/dir
-                # Note: /workspace/.docker cleanup removed as we don't create it this way anymore
-            '''
-        }
-        success {
-            echo "✅ Pipeline completed successfully!"
-            sh '''
-                echo "📋 Build Summary:"
-                echo "  Build Number: $BUILD_NUMBER"
-                echo "  Project ID: $PROJECT_ID"
-                echo "  Registry: ${GCR_REGISTRY}"
-                echo "  Images built and pushed:"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${BACKEND_IMAGE}:$BUILD_NUMBER"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${FRONTEND_IMAGE}:$BUILD_NUMBER"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${USER_SERVICE_IMAGE}:$BUILD_NUMBER"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${PRODUCT_SERVICE_IMAGE}:$BUILD_NUMBER"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${TRANSACTION_SERVICE_IMAGE}:$BUILD_NUMBER"
-                echo "    - ${GCR_REGISTRY}/${PROJECT_ID}/${RECOMMENDATION_API_IMAGE}:$BUILD_NUMBER"
-            '''
-        }
-        failure {
-            echo "❌ Pipeline failed. Check logs above for details."
-            sh '''
-                echo "🔍 Debugging information:"
-                echo "Current working directory: $(pwd)"
-                echo "Available files:"
-                find . -maxdepth 3 -name "Dockerfile*" -o -name "dockerfile*" 2>/dev/null || echo "No Dockerfiles found in top 3 levels"
-                echo "Kaniko config (if accessible):"
-                ls -la /kaniko/.docker/ 2>/dev/null || echo "No Kaniko config found or inaccessible"
-                echo "Checking if secret volume was mounted correctly (content might be redacted):"
-                cat /kaniko/.docker/config.json 2>/dev/null || echo "Could not read /kaniko/.docker/config.json"
-            '''
-        }
+        always { echo "🧹 Cleaning up…" }
+        success { echo "✅ All images built & deployed." }
+        failure { echo "❌ Check logs above." }
     }
 }
