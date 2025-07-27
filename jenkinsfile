@@ -137,44 +137,30 @@ spec:
                 
                 stage('Setup Kaniko Auth') {
                     steps {
-                        container('gcloud') {  // Use gcloud container to get access token
+                        container('kaniko') {
                             withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
                                 sh '''
-                                    echo "🔧 Setting up Kaniko authentication..."
-                                    
-                                    # Activate service account
-                                    export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
-                                    gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                                    
-                                    # Get access token
-                                    ACCESS_TOKEN=$(gcloud auth print-access-token)
-                                    
-                                    # Create the Docker config directory (shared volume)
-                                    mkdir -p /workspace/.docker
-                                    
-                                    # Create proper Docker config for Kaniko
-                                    cat > /workspace/.docker/config.json << EOF
-{
-  "auths": {
-    "gcr.io": {
-      "auth": "$(echo -n "oauth2accesstoken:$ACCESS_TOKEN" | base64 -w 0)"
-    }
-  },
-  "credHelpers": {
-    "gcr.io": "gcloud"
-  }
-}
-EOF
-                                    
-                                    echo "✅ Kaniko authentication configured"
-                                    ls -la /workspace/.docker/
-                                '''
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                    mkdir -p /kaniko/.docker
+                                    # Base-64 encode the whole JSON key
+                                    ENC_KEY=$(base64 -w0 < "$GCP_SA_KEY")
+                                    cat > /kaniko/.docker/config.json <<EOF
+                                     {
+                                      "auths": {
+                                         "gcr.io":   { "auth": "$ENC_KEY" },
+                                         "us.gcr.io":{ "auth": "$ENC_KEY" },
+                                         "eu.gcr.io":{ "auth": "$ENC_KEY" }
+                                            }
+                                            }
+                                            EOF
+                                                                echo "✅ Kaniko auth ready"
+                                                            '''
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
 
         stage('Copy Kaniko Config') {
             steps {
