@@ -5,7 +5,8 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
-  serviceAccountName: jenkins # Ensure this SA has necessary permissions
+  
+  // serviceAccountName: jenkins 
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
@@ -35,8 +36,10 @@ spec:
     volumeMounts:
     - name: workspace-volume
       mountPath: /workspace
-    - name: kaniko-secret
-      mountPath: /kaniko/.docker # Mount the secret volume here for Kaniko auth
+    // --- CHANGED: Mount the dynamically created secret ---
+    - name: kaniko-secret-volume
+      mountPath: /kaniko/.docker
+      readOnly: true // Good practice for secrets
     workingDir: /workspace
   - name: gcloud
     image: google/cloud-sdk:latest
@@ -57,12 +60,10 @@ spec:
   volumes:
   - name: workspace-volume
     emptyDir: {}
-  # Use a secret volume for Kaniko's Docker config.
-  # You need to create this secret in your cluster first:
-  # kubectl create secret generic kaniko-secret --from-file=config.json=<path-to-your-config.json> -n <jenkins-namespace>
-  - name: kaniko-secret
+  // --- CHANGED: Define the volume as a secret, to be created by the pipeline ---
+  - name: kaniko-secret-volume
     secret:
-      secretName: kaniko-secret 
+      secretName: kaniko-secret-${BUILD_NUMBER} // Unique name per build
   restartPolicy: Never
 '''
         }
@@ -77,7 +78,8 @@ spec:
         TRANSACTION_SERVICE_IMAGE  = 'transaction-service'
         RECOMMENDATION_API_IMAGE   = 'recommendation-api'
         DOCKER_TAG                 = "${env.BUILD_NUMBER}"
-        // GCP_CREDENTIALS_ID         = 'gcp-service-account-key' # Not directly used in env, used in withCredentials
+         GCP_CREDENTIALS_ID         = 'gcp-service-account-key' 
+         JENKINS_NAMESPACE          = 'default'
     }
     stages {
         stage('Checkout Code') {
@@ -108,10 +110,65 @@ spec:
                 }
             }
         }
+        stage('Setup Kaniko Secret') {
+            steps {
+                container('gcloud') {
+                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
+                        script {
+                            def secretName = "kaniko-secret-${BUILD_NUMBER}"
+                            echo "🔧 Creating Kubernetes Secret '${secretName}' for Kaniko authentication..."
+                            sh '''
+                                echo "🔧 Setting up temporary GCloud auth to create secret..."
+                                export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
+                                gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+                                # Ensure kubectl is configured (e.g., if using workload identity, this might be automatic)
+                                # If not, you might need to get cluster credentials here too, but usually not needed for in-cluster ops if SA is correct.
+
+                                echo "🔧 Generating Kaniko Docker config.json..."
+                                mkdir -p /tmp/kaniko-auth
+
+                                # Base-64 encode the JSON key for the standard Docker auth format using _json_key
+                                AUTH=$(printf "_json_key:$(cat $GCP_SA_KEY)" | base64 -w0)
+
+                                cat > /tmp/kaniko-auth/config.json <<EOF
+                                            {
+                                            "auths": {
+                                                "gcr.io": {
+                                                "auth": "$AUTH"
+                                                },
+                                                "us.gcr.io": {
+                                                "auth": "$AUTH"
+                                                },
+                                                "eu.gcr.io": {
+                                                "auth": "$AUTH"
+                                                }
+                                            }
+                                            }
+                                            EOF
+                                echo "📋 Generated config.json content:"
+                                cat /tmp/kaniko-auth/config.json
+
+                                echo "🔧 Creating Kubernetes Secret '${secretName}' in namespace '${JENKINS_NAMESPACE}'..."
+                                kubectl create secret generic ${secretName} \
+                                    --from-file=config.json=/tmp/kaniko-auth/config.json \
+                                    --namespace=${JENKINS_NAMESPACE} \
+                                    --dry-run=client -o yaml | kubectl apply -f -
+
+                                if [ $? -eq 0 ]; then
+                                    echo "✅ Kubernetes Secret '${secretName}' created successfully."
+                                else
+                                    echo "❌ Failed to create Kubernetes Secret '${secretName}'."
+                                    exit 1
+                                fi
+                            '''
+                        }
+                    }
+                }
+            }
+        }
 
         stage('Setup Authentication') {
             parallel {
-                // GCloud setup primarily for gcloud commands (listing images, GKE auth, etc.)
                 stage('Setup GCloud Auth') {
                     steps {
                         container('gcloud') {
@@ -127,63 +184,16 @@ spec:
                             }
                         }
                     }
-                }
-                // Kaniko auth is handled by mounting the secret volume (see podTemplate and Setup Kaniko Auth stage below)
-                stage('Setup Kaniko Auth (Deprecated - Using Secret Volume)') {
-                     steps {
-                         script {
-                             echo "⚠️  Kaniko auth now uses a Kubernetes secret volume. This stage is deprecated but kept for clarity."
-                             echo "🔧 Ensure you have created the 'kaniko-secret' in your cluster:"
-                             echo "   kubectl create secret generic kaniko-secret --from-file=config.json=<path-to-config.json> -n <jenkins-namespace>"
-                         }
-                     }
-                }
-                // This stage is kept to show how the secret file *should* be created.
-                // In practice, you would run this command manually or via another process *before* the pipeline runs.
-                // The pipeline now expects the secret already exists.
-                stage('Create Kaniko Auth Secret (Manual Step Placeholder)') {
-                    steps {
-                        container('kaniko') {
-                            withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_KEY')]) {
-                                sh '''
-                                    echo "🔧 (Placeholder) Creating Kaniko Docker config.json..."
-                                    echo "   You should run this command manually or via a separate process:"
-                                    echo "   kubectl create secret generic kaniko-secret --from-file=config.json=/path/to/this/generated/config.json --namespace <your-jenkins-namespace>"
-                                    mkdir -p /tmp/kaniko-auth
-                                    # Base-64 encode the JSON key for the standard Docker auth format using _json_key
-                                    # Read the key file, prepend '_json_key:', and then base64 encode the whole string
-                                    AUTH=$(printf "_json_key:$(cat $GCP_SA_KEY)" | base64 -w0)
-                                    cat > /tmp/kaniko-auth/config.json <<EOF
-{
-  "auths": {
-    "gcr.io": {
-      "auth": "$AUTH"
-    },
-    "us.gcr.io": {
-      "auth": "$AUTH"
-    },
-    "eu.gcr.io": {
-      "auth": "$AUTH"
-    }
-    // Add other registries if needed (e.g., Artifact Registry)
-    // "europe-west1-docker.pkg.dev": {
-    //   "auth": "$AUTH"
-    // }
-  }
-}
-EOF
-                                    echo "📋 Generated config.json content (for manual secret creation):"
-                                    cat /tmp/kaniko-auth/config.json
-                                    echo "✅ (Placeholder) Kaniko auth config ready (needs manual kubectl create secret step)"
-                                '''
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                }               
+                
+            } 
+        }     
+             
+                
 
-
+                    
+                
+           
         stage('Build Images') {
             steps {
                 container('kaniko') {
@@ -404,11 +414,34 @@ EOF
     post {
         always {
             echo "🧹 Cleaning up…"
+            // --- CHANGED/ADDED: Clean up the dynamically created secret ---
+            script {
+                def secretName = "kaniko-secret-${BUILD_NUMBER}"
+                echo "🧹 Attempting to delete temporary Kubernetes Secret '${secretName}'..."
+                try {
+                    // Use a container that has kubectl, e.g., gcloud
+                    container('gcloud') {
+                         sh """
+                            # Optional: Re-authenticate if needed for cleanup, though often not necessary for in-cluster ops
+                            # export GOOGLE_APPLICATION_CREDENTIALS=\$(pwd)/${env.GCP_CREDENTIALS_ID} # Might need path handling
+                            # gcloud auth activate-service-account --key-file=\$(pwd)/${env.GCP_CREDENTIALS_ID}
+                            kubectl delete secret ${secretName} --namespace=${env.JENKINS_NAMESPACE} --ignore-not-found=true
+                            if [ \$? -eq 0 ]; then
+                                echo "✅ Temporary Kubernetes Secret '${secretName}' deleted."
+                            else
+                                echo "⚠️  Failed to delete temporary Kubernetes Secret '${secretName}', it might not exist."
+                            fi
+                         """
+                    }
+                } catch (e) {
+                    echo "⚠️  Exception during secret cleanup: ${e}"
+                }
+            }
             sh '''
-                # Clean up temporary files
+                # Clean up other temporary files
                 rm -rf /tmp/k8s-manifests || true
-                rm -rf /workspace/.docker || true
-                rm -rf /tmp/kaniko-auth || true # Clean up temp auth file if used
+                rm -rf /tmp/kaniko-auth || true # Clean up temp auth file/dir
+                # Note: /workspace/.docker cleanup removed as we don't create it this way anymore
             '''
         }
         success {
