@@ -12,21 +12,15 @@ import { VariantValueEntity } from './entities/product/_variant/variant-value.en
 import { ProductVariantEntity } from './entities/product/_variant/product-variant.entity';
 import { SpecificationEntity } from './entities/product/specifications.entity';
 import { SpecificationGroupEntity } from './entities/product/specifications-group.entity';
-/* load dotenv only in non-production */
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-config();
 
-const configService = new ConfigService();
 
 export const productDBdataSourceOptions: DataSourceOptions = {
   type: 'mysql',
-  host: configService.get('DB_HOST'),
-  port: parseInt(configService.get<string>('DB_PORT') || '3306', 10),
-  username: configService.get('DB_USERNAME'),
-  password: configService.get('DB_PASSWORD'),
-  database: configService.get('DB_PRODUCT_NAME'),
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_PRODUCT_NAME || 'ecommerce_products', 
   entities: [
     CategoryEntity,
     ManufacturersEntity,
@@ -41,8 +35,10 @@ export const productDBdataSourceOptions: DataSourceOptions = {
     SpecificationEntity,
     SpecificationGroupEntity,
   ],
-  migrations: ['dist/common/database/migrations/*.js'],
-  synchronize: true,
+  migrations: ['dist/apps/product/database/migrations/*.js'], // Adjust path to match project structure
+  synchronize: process.env.NODE_ENV !== 'production', // Disable synchronize in production
+  logging: process.env.NODE_ENV !== 'production', // Enable logging in non-production for debugging
 };
 
-export const AppDataSource = new DataSource(productDBdataSourceOptions);
+// Optionally export DataSource for manual initialization (if needed)
+export const ProductAppDataSource = new DataSource(productDBdataSourceOptions);

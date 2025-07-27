@@ -1,30 +1,23 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { CartItemEntity } from './entities/cart/cart_items.entity';
 import { CartEntity } from './entities/cart/cart.entity';
+import { CartItemEntity } from './entities/cart/cart_items.entity';
 import { OrderEntity } from './entities/order/order.entity';
 import { OrderItemEntity } from './entities/order/order-item.entity';
-/* load dotenv only in non-production */
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-config();
 
-const configService = new ConfigService();
-
-export const transationDBDataSourceOptions: DataSourceOptions = {
+// Export DataSourceOptions for use with NestJS TypeOrmModule
+export const transactionDBdataSourceOptions: DataSourceOptions = {
   type: 'mysql',
-  host: configService.get('DB_HOST'),
-  port: parseInt(configService.get<string>('DB_PORT') || '3306', 10),
-  username: configService.get('DB_USERNAME'),
-  password: configService.get('DB_PASSWORD'),
-  database: configService.get('DB_TRANSACTION_NAME'),
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_TRANSACTION_NAME || 'ecommerce_transactions', 
   entities: [CartEntity, CartItemEntity, OrderEntity, OrderItemEntity],
-
-  migrations: ['dist/common/database/migrations/*.js'],
-  synchronize: true,
+  migrations: ['dist/apps/transaction/database/migrations/*.js'], // Adjust path to match project structure
+  synchronize: process.env.NODE_ENV !== 'production', // Disable synchronize in production
+  logging: process.env.NODE_ENV !== 'production', // Enable logging in non-production for debugging
 };
 
-export const TransationAppDataSource = new DataSource(
-  transationDBDataSourceOptions,
-);
+// Optionally export DataSource for manual initialization (if needed)
+export const TransactionAppDataSource = new DataSource(transactionDBdataSourceOptions);

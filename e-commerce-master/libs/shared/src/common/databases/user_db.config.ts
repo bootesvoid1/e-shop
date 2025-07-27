@@ -1,25 +1,20 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { UsersEntity } from './entities/user.entity';
-/* load dotenv only in non-production */
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-config();
 
-const configService = new ConfigService();
 
 export const userDBdataSourceOptions: DataSourceOptions = {
   type: 'mysql',
-  host: configService.get('DB_HOST'),
-  port: parseInt(configService.get<string>('DB_PORT') || '3306', 10),
-  username: configService.get('DB_USERNAME'),
-  password: configService.get('DB_PASSWORD'),
-  database: configService.get('DB_USER_NAME'),
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_USER_NAME || 'ecommerce_users', 
   entities: [UsersEntity],
-
-  migrations: ['dist/common/database/migrations/*.js'],
-  synchronize: true,
+  migrations: ['dist/apps/user/database/migrations/*.js'], 
+  synchronize: process.env.NODE_ENV !== 'production', 
+  logging: process.env.NODE_ENV !== 'production', 
 };
 
+// Optionally export DataSource for manual initialization (if needed)
 export const UserAppDataSource = new DataSource(userDBdataSourceOptions);
