@@ -90,7 +90,7 @@ spec:
                                     ${envVars} \
                                     --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
                                     --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                    --credential=/kaniko/key.json \
+                                    --google-credentials-file=/kaniko/key.json \
                                     --cache=true \
                                     --cleanup --verbosity=info
                                 """
