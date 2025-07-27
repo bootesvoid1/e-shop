@@ -56,7 +56,7 @@ spec:
                         def images = [
                             [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
                             [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
-                            [df: 'recommendation-service/Dockerfile',           name: 'recommendation-api'],
+                            [df: 'recommendation-service/Dockerfile.recommendation',name: 'recommendation-api'],
                             [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service'],
                             [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service'],
                             [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service']

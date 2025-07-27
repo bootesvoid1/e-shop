@@ -3,14 +3,14 @@ FROM python:3.9-slim
 # Create app directory with proper permissions
 WORKDIR /app
 
-# Copy requirements first
-COPY requirements.txt .
+# Copy requirements first (path relative to the root of the git repo / build context)
+COPY recommendation-service/requirements.txt .
 
 # Install dependencies with explicit user
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy application code (path relative to the root of the git repo / build context)
+COPY recommendation-service/ . # Copy contents of the recommendation-service directory into /app
 
 # Make sure the user has permissions
 RUN chmod +x /app
