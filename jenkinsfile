@@ -108,10 +108,11 @@ spec:
             withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
                 sh '''
                     mkdir -p /kaniko/.docker
-                    export GOOGLE_APPLICATION_CREDENTIALS=${GC_KEY}
-                    gcloud auth activate-service-account --key-file=${GC_KEY}
+                    cp "$GC_KEY" /tmp/key.json        # <-- copy to space-free location
+                    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
+                    gcloud auth activate-service-account --key-file=/tmp/key.json
                     gcloud auth configure-docker gcr.io
-                    echo "✅ Kaniko authenticated to GCR"
+                    echo "✅ gcloud authenticated"
                 '''
             }
         }
