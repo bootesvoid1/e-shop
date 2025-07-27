@@ -5,18 +5,18 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
-  
-  // serviceAccountName: jenkins 
+  # Consider removing or verifying 'jenkins' SA has secret creation perms
+  # serviceAccountName: jenkins
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
     resources:
-        requests:
-            memory: "128Mi"
-            cpu:    "50m"
-        limits:
-            memory: "512Mi"
-            cpu:    "250m"
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /home/jenkins/agent
@@ -27,19 +27,19 @@ spec:
     args:
     - infinity
     resources:
-        requests:
-            memory: "512Mi"
-            cpu:    "200m"
-        limits:
-            memory: "1Gi"
-            cpu:    "500m"
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /workspace
-    // --- CHANGED: Mount the dynamically created secret ---
+    # Mount the dynamically created secret
     - name: kaniko-secret-volume
       mountPath: /kaniko/.docker
-      readOnly: true // Good practice for secrets
+      readOnly: true
     workingDir: /workspace
   - name: gcloud
     image: google/cloud-sdk:latest
@@ -48,22 +48,22 @@ spec:
     args:
     - infinity
     resources:
-        requests:
-            memory: "128Mi"
-            cpu:    "50m"
-        limits:
-            memory: "512Mi"
-            cpu:    "250m"
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
     volumeMounts:
     - name: workspace-volume
       mountPath: /workspace
   volumes:
   - name: workspace-volume
     emptyDir: {}
-  // --- CHANGED: Define the volume as a secret, to be created by the pipeline ---
+  # Define the volume as a secret, to be created by the pipeline
   - name: kaniko-secret-volume
     secret:
-      secretName: kaniko-secret-${BUILD_NUMBER} // Unique name per build
+      secretName: "kaniko-secret-${BUILD_NUMBER}" # Unique name per build
   restartPolicy: Never
 '''
         }
