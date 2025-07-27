@@ -11,8 +11,8 @@ spec:
     image: gcr.io/kaniko-project/executor:debug
     command: [sleep, infinity]
     resources:
-      requests: { memory: "512Mi", cpu: "200m" }
-      limits:   { memory: "1Gi",  cpu: "500m" }
+      requests: { memory: "128Mi", cpu: "50m" }
+      limits:   { memory: "512Mi", cpu: "250m" }
     volumeMounts:
     - name: gcp-key
       mountPath: /kaniko/key.json
@@ -22,15 +22,8 @@ spec:
   volumes:
   - name: gcp-key
     secret:
-      secretName: gcp-service-account-key   # <-- upload this once
+      secretName: gcp-service-account-key   # <-- you already created this
   - name: workspace
-  resources:
-  requests:
-    memory: "128Mi"
-    cpu:    "50m"
-  limits:
-    memory: "512Mi"
-    cpu:    "250m"
     emptyDir: {}
 '''
         }
@@ -38,7 +31,8 @@ spec:
 
     environment {
         PROJECT_ID = 'e-shop-deploy'
-        REGISTRY   = 'gcr.io'
+        REGION     = 'europe-west1'
+        REPO       = 'e-shop-repo'
         TAG        = "${BUILD_NUMBER}"
     }
 
@@ -51,22 +45,29 @@ spec:
             steps {
                 container('kaniko') {
                     script {
+                        // Create AR-compatible Docker config
+                        sh '''
+                            mkdir -p /kaniko/.docker
+                            echo '{"auths":{"'"${REGION}"'-docker.pkg.dev":{}}}' > /kaniko/.docker/config.json
+                        '''
+
+                        // Build every image from project root
                         def images = [
-                            [ctx: 'e-commerce-master',       df: 'Dockerfile.backend',  name: 'ecommerce-backend'],
-                            [ctx: 'e-commerce-front-master', df: 'dockerfile.frontend', name: 'ecommerce-frontend'],
-                            [ctx: 'recommendation-service',  df: 'Dockerfile',          name: 'recommendation-api'],
-                            [ctx: 'e-commerce-master',       df: 'Dockerfile.user',     name: 'user-service'],
-                            [ctx: 'e-commerce-master',       df: 'Dockerfile.product',  name: 'product-service'],
-                            [ctx: 'e-commerce-master',       df: 'Dockerfile.transaction', name: 'transaction-service']
+                            [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
+                            [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
+                            [df: 'recommendation-service/Dockerfile',           name: 'recommendation-api'],
+                            [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service'],
+                            [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service'],
+                            [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service']
                         ]
 
                         images.each { img ->
                             sh """
                                 /kaniko/executor \
-                                  --context=\"\$(pwd)/${img.ctx}\" \
-                                  --dockerfile=\"\$(pwd)/${img.ctx}/${img.df}\" \
-                                  --destination=${REGISTRY}/${PROJECT_ID}/${img.name}:${TAG} \
-                                  --destination=${REGISTRY}/${PROJECT_ID}/${img.name}:latest \
+                                  --context=. \
+                                  --dockerfile=${img.df} \
+                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
                                   --cleanup --verbosity=info
                             """
                         }
@@ -81,9 +82,10 @@ spec:
                     withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'KEY')]) {
                         sh '''
                             export GOOGLE_APPLICATION_CREDENTIALS="$KEY"
-                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=e-shop-deploy
+                            gcloud container clusters get-credentials ecommerce-cluster --zone=europe-west1-b --project=$PROJECT_ID
                             gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
-                            sed -i "s|:latest|:${BUILD_NUMBER}|g" /tmp/deployments/*.yaml
+                            sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
+                            sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
                             kubectl apply -f /tmp/deployments/
                             kubectl apply -f /tmp/services/
                         '''
@@ -94,8 +96,8 @@ spec:
     }
 
     post {
-        always { echo "🧹 Cleaning up…" }
-        success { echo "✅ All images built & deployed." }
+        always  { echo "🧹 Cleaning up…" }
+        success { echo "✅ All images pushed to Artifact Registry and deployed." }
         failure { echo "❌ Check logs above." }
     }
 }
