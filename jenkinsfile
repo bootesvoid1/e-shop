@@ -100,9 +100,7 @@ spec:
                     echo "🔍 Running secret scanning (placeholder)"
                 }
             }
-        }
-
-     
+        }     
         stage('Setup GCP Auth') {
             steps {
                 container('gcloud') {               
@@ -120,16 +118,17 @@ spec:
             }
         }
     }
-}       stage('Create Kaniko Docker Config') {
-            steps {
-                container('kaniko') {
-                    withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
-                        sh '''
-                            mkdir -p /kaniko/.docker
-                            # build the JSON auth block
-                            echo '{"auths":{"gcr.io":{"auth":"'$(base64 -w0 "$GC_KEY")'"}}}' > /kaniko/.docker/config.json
-                            echo "✅ Kaniko Docker config created"
-                        '''
+}       
+            stage('Create Kaniko Docker Config') {
+                steps {
+                    container('kaniko') {
+                        withCredentials([file(credentialsId: 'gcp-service-account-key', variable: 'GC_KEY')]) {
+                         sh '''
+                                mkdir -p /kaniko/.docker
+                                # build the JSON auth block
+                                echo '{"auths":{"gcr.io":{"auth":"'$(base64 -w0 "$GC_KEY")'"}}}' > /kaniko/.docker/config.json
+                                echo "✅ Kaniko Docker config created"
+                         '''
                     }
                 }
             }
