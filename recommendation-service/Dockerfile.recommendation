@@ -1,21 +1,20 @@
 FROM python:3.9-slim
 
-# Create app directory with proper permissions
+
 WORKDIR /app
 
-# Copy requirements first (path relative to the root of the git repo / build context)
+
 COPY recommendation-service/requirements.txt .
 
-# Install dependencies with explicit user
+
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Copy application code (path relative to the root of the git repo / build context)
-COPY recommendation-service/ . # Copy contents of the recommendation-service directory into /app
+COPY recommendation-service/ . 
 
-# Make sure the user has permissions
+
 RUN chmod +x /app
 
-# Run with the python user base
+
 ENV PATH="/home/python/.local/bin:${PATH}"
 ENV PYTHONPATH="/home/python/.local/lib/python3.9/site-packages"
 
