@@ -108,38 +108,32 @@ spec:
                     script {
                         echo "🔧 Setting up GCP authentication for Kaniko..."
                         withCredentials([string(credentialsId: 'gcp-service-account-key', variable: 'GCP_SA_JSON')]) {
-                            sh '''
-                                echo "Setting up Kaniko authentication..."
-                                mkdir -p /tmp
-                                mkdir -p /kaniko/.docker
-                                
-                                # Create temporary file for service account
-                                echo "$GCP_SA_JSON" > /tmp/gcp-key.json
-                                
-                                # Validate JSON
-                                if ! cat /tmp/gcp-key.json | head -c 10 | grep -q '{'; then
-                                    echo "❌ GCP service account JSON appears to be invalid"
-                                    exit 1
-                                fi
-                                
-                                # Create Docker config for Kaniko
-                                cat > /kaniko/.docker/config.json << EOF
-{
-  "auths": {
-    "gcr.io": {
-      "auth": "$(echo -n "_json_key:$(cat /tmp/gcp-key.json)" | base64 -w 0)"
-    }
-  }
-}
-EOF
-                                
-                                echo "✅ Kaniko authentication configured"
-                                rm -f /tmp/gcp-key.json
-                                
-                                # Verify config was created
-                                ls -la /kaniko/.docker/
-                                echo "Config file size: $(wc -c < /kaniko/.docker/config.json) bytes"
-                            '''
+                            // No need for complex sh commands, we can use Groovy/Scriptler
+                            // Validate the credential content first (basic check)
+                            if (env.GCP_SA_JSON == null || env.GCP_SA_JSON.trim() == "" || !env.GCP_SA_JSON.trim().startsWith('{')) {
+                                error "❌ GCP service account JSON credential is empty or invalid. Please check the 'gcp-service-account-key' credential in Jenkins."
+                            }
+
+                            // Create the .docker directory for Kaniko
+                            sh 'mkdir -p /kaniko/.docker'
+
+                            // Create the Docker config.json directly for Kaniko
+                            // Use Groovy to construct the JSON to avoid complex shell quoting
+                            def configJson = """{
+                            "auths": {
+                                "gcr.io": {
+                                    "auth": "${"\"_json_key:${env.GCP_SA_JSON}\".bytes.encodeBase64().toString()}"
+                                            }
+                                                }
+                                                    }"""
+                            // Write the config to the file Kaniko expects
+                            writeFile file: '/kaniko/.docker/config.json', text: configJson
+
+                            echo "✅ Kaniko authentication configured"
+                            // Optional: Verify config was created
+                            // sh 'ls -la /kaniko/.docker/'
+                            // sh 'echo "Config file size: $(wc -c < /kaniko/.docker/config.json) bytes"'
+                            
                         }
                     }
                 }
