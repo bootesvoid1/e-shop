@@ -18,7 +18,7 @@ COPY e-commerce-front-master/angular.json e-commerce-front-master/tsconfig.json 
 COPY e-commerce-front-master/src ./src
 
 # Build the Angular application (specific project if in a monorepo)
-RUN pnpm run build -- --configuration production
+RUN pnpm run build  --configuration production
 
 # Production stage (using nginx to serve the frontend)
 FROM nginx:alpine
