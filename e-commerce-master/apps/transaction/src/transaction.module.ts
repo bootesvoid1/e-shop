@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TransactionController } from './transaction.controller';
 import { TransactionService } from './transaction.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { transationDBDataSourceOptions } from '@app/shared/common/databases/transation.config';
+import { transactionDBdataSourceOptions } from '@app/shared/common/databases/transation.config';
 import { CartEntity } from '@app/shared/common/databases/entities/cart/cart.entity';
 import { CartItemEntity } from '@app/shared/common/databases/entities/cart/cart_items.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -15,7 +15,7 @@ import { OrderBroker } from './order/order.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot(transationDBDataSourceOptions),
+    TypeOrmModule.forRoot(transactionDBdataSourceOptions),
     TypeOrmModule.forFeature([
       CartEntity,
       CartItemEntity,
