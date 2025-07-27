@@ -1,29 +1,45 @@
 FROM node:20-alpine AS builder
 
+# Install pnpm
 RUN npm install -g pnpm
+
+# Set the working directory
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+
+# Copy package files
+COPY e-commerce-master/package.json e-commerce-master/pnpm-lock.yaml ./
+
+# Install dependencies
 RUN pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm run build # This builds all apps
 
-FROM node:20-alpine AS runtime
-# Install pnpm in the final stage if needed for any runtime scripts
+# Copy source files
+COPY e-commerce-master/ ./
+
+# Build the specific user service
+RUN pnpm run build:user
+
+# Production stage
+FROM node:20-alpine
+
+# Install pnpm
 RUN npm install -g pnpm
 
+# Set the working directory
 WORKDIR /app
+
 # Copy package files for production dependencies
-COPY package.json pnpm-lock.yaml ./
+COPY e-commerce-master/package.json e-commerce-master/pnpm-lock.yaml ./
+
 # Install ONLY production dependencies
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy built output for the specific app
 COPY --from=builder /app/dist/apps/user ./dist/apps/user
-# Copy any shared libraries or assets needed at runtime if they are not bundled
+# Copy shared libraries if needed
 COPY --from=builder /app/libs ./libs
-# Add any other necessary files/dirs from builder (e.g., templates, configs)
-# COPY --from=builder /app/apps/user/src/mail/templates ./apps/user/src/mail/templates
 
+# Expose port
 EXPOSE 3002
+
 # Run the specific user service
 CMD ["node", "dist/apps/user/main"]

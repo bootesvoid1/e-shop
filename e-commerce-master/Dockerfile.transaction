@@ -1,21 +1,45 @@
 FROM node:20-alpine AS builder
 
+# Install pnpm
 RUN npm install -g pnpm
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm run build
 
-FROM node:20-alpine AS runtime
-RUN npm install -g pnpm
+# Set the working directory
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+
+# Copy package files
+COPY e-commerce-master/package.json e-commerce-master/pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source files
+COPY e-commerce-master/ ./
+
+# Build the specific transaction service
+RUN pnpm run build:transaction
+
+# Production stage
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package files for production dependencies
+COPY e-commerce-master/package.json e-commerce-master/pnpm-lock.yaml ./
+
+# Install ONLY production dependencies
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
+# Copy built output for the specific app
 COPY --from=builder /app/dist/apps/transaction ./dist/apps/transaction
+# Copy shared libraries if needed
 COPY --from=builder /app/libs ./libs
-# COPY other necessary assets if needed...
 
+# Expose port
 EXPOSE 3005
+
+# Run the specific transaction service
 CMD ["node", "dist/apps/transaction/main"]
