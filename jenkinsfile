@@ -37,7 +37,7 @@ spec:
   volumes:
   - name: workspace
     emptyDir: {}
-   - name: snyk
+  - name: snyk
     image: snyk/snyk-cli:docker
     command: ["sleep", "infinity"]
     volumeMounts:
