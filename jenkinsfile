@@ -78,17 +78,17 @@ spec:
                             echo "ERROR: Failed to obtain access token"
                             exit 1
                         fi
-                        # Ensure the file is created fresh (overwrite, not append)
+                        
                         rm -f /kaniko/.docker/config.json
                         cat <<EOF > /kaniko/.docker/config.json
-                            {
+                        {
                             "auths": {
                                 "${REGION}-docker.pkg.dev": {
-                                "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
-                                }
-                            }
-                            }
-                            EOF
+                                   "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
+                                      }
+                                        }
+                                         }
+                        EOF
                         ls -l /kaniko/.docker/config.json # Debug: Verify file creation
                         # Debug: Show config.json structure (non-sensitive parts)
                         grep -v auth /kaniko/.docker/config.json
