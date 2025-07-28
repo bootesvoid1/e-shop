@@ -37,6 +37,18 @@ spec:
   volumes:
   - name: workspace
     emptyDir: {}
+   - name: snyk
+    image: snyk/snyk-cli:docker
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+  - name: zap
+    image: owasp/zap2docker-stable:latest
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
 '''
         }
     }
@@ -93,7 +105,34 @@ spec:
                 }
             }
         }
-
+        stage('Security Scans') {
+            parallel {
+                stage('Snyk') {
+                    steps {
+                        container('snyk') {
+                            withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
+                                sh '''
+                                    export GOOGLE_APPLICATION_CREDENTIALS=$GC_KEY
+                                    snyk auth $(gcloud auth print-access-token)
+                                    snyk test --severity-threshold=high --json-file-output=snyk.json || true
+                                    snyk container test ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/ecommerce-backend:${TAG} --json-file-output=snyk-container.json || true
+                                '''
+                            }
+                        }
+                    }
+                }
+                stage('ZAP') {
+                    steps {
+                        container('zap') {
+                            sh '''
+                                zap-baseline.py -t http://ecommerce-backend-service:80 \
+                                -r zap-report.html -I -w zap-warnings.md
+                            '''
+                        }
+                    }
+                }
+            }
+        }
         stage('Deploy') {
             steps {
                 container('gcloud') {

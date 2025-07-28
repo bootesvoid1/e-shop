@@ -12,12 +12,11 @@ spec:
       labels:
         app: ecommerce-backend
     spec:
-      # --- Volume for sharing secrets script ---
+    
       volumes:
         - name: secrets-script-volume
           emptyDir: {}
-      # --- End Volume ---
-      # --- Init Container to fetch secrets ---
+    
       initContainers:
         - name: fetch-secrets
           image: google/cloud-sdk:alpine
@@ -25,7 +24,7 @@ spec:
             - '/bin/sh'
             - '-c'
           env:
-            # Define secret names as env vars for the script
+           
             - name: DB_PASSWORD_SECRET_NAME
               value: "ecommerce-db-password"
             - name: MAIL_ADDRESS_SECRET_NAME
@@ -71,11 +70,11 @@ spec:
           volumeMounts:
             - name: secrets-script-volume
               mountPath: /mnt/secrets-fetched
-      # --- End Init Container ---
+     
       containers:
         - name: backend
           image: gcr.io/e-shop-deploy/ecommerce-backend:latest
-          # --- Main command sources secrets then runs app ---
+          
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -91,24 +90,24 @@ spec:
               # Execute the original application command
               # Make sure this matches your actual start command in your Dockerfile
               exec node dist/apps/e-commerce/main
-          # --- End Main command ---
+          
           ports:
             - containerPort: 3000
-          # --- Mount volume for secrets script ---
+         
           volumeMounts:
             - name: secrets-script-volume
               mountPath: /mnt/secrets-fetched
-          # --- Environment variables (non-secrets or defaults) ---
+          
           env:
-            # Database configuration (using public IP for speed)
+            
             - name: DB_HOST
-              value: "35.240.49.17" # Public IP
+              value: "35.240.49.17" 
             - name: DB_PORT
               value: "3306" 
             - name: DB_USERNAME
-              value: "root" # Your DB username - Confirm this is correct
+              value: "root"
             - name: DB_NAME
-              value: "e-shop-user-db" # Your DB name - Confirm this is correct
+              value: "e-shop-user-db" 
           
             - name: DB_PASSWORD
               value: "" 
@@ -121,4 +120,4 @@ spec:
             - name: MAIL_PORT
               value: "" 
             - name: JWT_SECRET
-              value: "" # Will be overridden by script
+              value: "" 
