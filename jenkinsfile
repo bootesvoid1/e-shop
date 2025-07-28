@@ -103,7 +103,6 @@ spec:
                         images.each { img ->
                             def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                             sh """
-                                DOCKER_CONFIG=/workspace/docker-config \
                                 /kaniko/executor \\
                                 --context=. \\
                                 --dockerfile=${img.df} \\
