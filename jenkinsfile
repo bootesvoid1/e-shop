@@ -49,7 +49,6 @@ spec:
         REGION              = 'europe-west1'
         REPO                = 'e-shop-repo'
         TAG                 = "${BUILD_NUMBER}"
-
         DB_PRODUCT_NAME     = "e_shop_product_db"
         DB_USER_NAME        = "e_shop_auth_db"
         DB_CART_NAME        = "e_shop_cart_db"
@@ -63,33 +62,36 @@ spec:
 
         stage('Build & Push') {
             steps {
+                container('gcloud') {
+                    sh '''
+                        gcloud auth application-default print-access-token > /workspace/kaniko-cred.json
+                    '''
+                }
                 container('kaniko') {
-                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
-                        script {
-                            def images = [
-                                [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
-                                [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
-                                [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
-                                [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
-                                [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
-                                [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
-                            ]
+                    script {
+                        def images = [
+                            [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
+                            [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
+                            [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
+                            [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
+                            [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
+                            [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
+                        ]
 
-                            images.each { img ->
-                                def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
-                                sh """
-                                    
-                                    /kaniko/executor \
-                                      --context=. \
-                                      --dockerfile=${img.df} \
-                                      ${envVars} \
-                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                      --cache=true \
-                                      --cleanup \
-                                      --verbosity=info
-                                """
-                            }
+                        images.each { img ->
+                            def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
+                            sh """
+                                /kaniko/executor \
+                                  --context=. \
+                                  --dockerfile=${img.df} \
+                                  ${envVars} \
+                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
+                                  --cache=true \
+                                  --cleanup \
+                                  --verbosity=info \
+                                  --credential=/workspace/kaniko-cred.json
+                            """
                         }
                     }
                 }
@@ -99,21 +101,18 @@ spec:
         stage('Deploy') {
             steps {
                 container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
-                        sh '''
-                            export GOOGLE_APPLICATION_CREDENTIALS="$GC_KEY"
-                            gcloud auth list
-                            gcloud container clusters get-credentials ecommerce-cluster-v2 \
-                                --zone=europe-west1-b \
-                                --project=$PROJECT_ID
-                            kubectl version
-                            gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
-                            sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
-                            sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
-                            kubectl apply -f /tmp/deployments/
-                            kubectl apply -f /tmp/services/
-                        '''
-                    }
+                    sh '''
+                        gcloud auth list
+                        gcloud container clusters get-credentials ecommerce-cluster-v2 \
+                            --zone=europe-west1-b \
+                            --project=$PROJECT_ID
+                        kubectl version
+                        gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
+                        sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
+                        sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
+                        kubectl apply -f /tmp/deployments/
+                        kubectl apply -f /tmp/services/
+                    '''
                 }
             }
         }
