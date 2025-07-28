@@ -63,7 +63,10 @@ spec:
 
     stages {
         stage('Checkout') {            
-            steps { checkout scm }
+            steps { 
+                checkout scm 
+                sh 'ls -R /home/jenkins/agent/workspace' // Debug: List workspace contents
+            }
         }
 
         stage('Build & Push') {
@@ -71,7 +74,16 @@ spec:
                 container('gcloud') {
                     sh '''
                         ACCESS_TOKEN=$(gcloud auth print-access-token)
-                        echo "{\"auths\":{\"${REGION}-docker.pkg.dev\":{\"auth\":\"$(echo -n '_token:${ACCESS_TOKEN}' | base64 -w0)\"}}}" > /kaniko/.docker/config.json
+                        cat <<EOF > /kaniko/.docker/config.json
+{
+  "auths": {
+    "${REGION}-docker.pkg.dev": {
+      "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
+    }
+  }
+}
+EOF
+                        ls -l /kaniko/.docker/config.json # Debug: Verify file creation
                     '''
                 }
                 container('kaniko') {
