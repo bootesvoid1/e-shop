@@ -4,6 +4,9 @@ pipeline {
             yaml '''
 apiVersion: v1
 kind: Pod
+metadata:
+  annotations:
+    iam.gke.io/gcp-service-account: jenkins-sa@e-shop-deploy.iam.gserviceaccount.com    
 spec:
   serviceAccountName: jenkins
   nodeSelector:
@@ -26,7 +29,7 @@ spec:
     - name: workspace
       mountPath: /workspace
   - name: gcloud
-    image: google/cloud-sdk:slim
+    image: google/cloud-sdk:latest
     command: ["sleep", "infinity"]
     resources:
       requests: { memory: "512Mi", cpu: "250m" }
@@ -75,8 +78,7 @@ spec:
                             images.each { img ->
                                 def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                                 sh """
-                                    hostname
-                                    export GOOGLE_APPLICATION_CREDENTIALS=\${GC_KEY}
+                                    
                                     /kaniko/executor \
                                       --context=. \
                                       --dockerfile=${img.df} \
@@ -100,9 +102,11 @@ spec:
                     withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
                         sh '''
                             export GOOGLE_APPLICATION_CREDENTIALS="$GC_KEY"
+                            gcloud auth list
                             gcloud container clusters get-credentials ecommerce-cluster-v2 \
                                 --zone=europe-west1-b \
                                 --project=$PROJECT_ID
+                            kubectl version
                             gsutil -m cp -r gs://e-shop-bucket-1/k8s/* /tmp
                             sed -i "s|:latest|:${TAG}|g" /tmp/deployments/*.yaml
                             sed -i "s|gcr.io/${PROJECT_ID}|${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}|g" /tmp/deployments/*.yaml
