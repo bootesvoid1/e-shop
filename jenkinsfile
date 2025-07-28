@@ -72,21 +72,18 @@ spec:
         stage('Build & Push') {
             steps {
                 container('gcloud') {
-                    sh '''
-                        # Obtain token
-                        ACCESS_TOKEN=$(gcloud auth print-access-token)
-                        # Build Docker config
-                        mkdir -p /workspace/docker-config
-                        cat <<EOF > /workspace/docker-config/config.json
-                        {
-                        "auths": {
-                            "'${REGION}'-docker.pkg.dev": {
-                            "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
-                            }
-                        }
-                        }
-                        EOF
-                    '''
+                        sh """
+                            DOCKER_CONFIG=/workspace/docker-config \
+                            /kaniko/executor \
+                            --context=. \
+                            --dockerfile=${img.df} \
+                            ${envVars} \
+                            --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                            --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
+                            --cache=true \
+                            --cleanup \
+                            --verbosity=info
+                            """
                 }
                 container('kaniko') {
                     script {
