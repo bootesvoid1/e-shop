@@ -74,6 +74,12 @@ spec:
                 container('gcloud') {
                     sh '''
                         ACCESS_TOKEN=$(gcloud auth print-access-token)
+                        if [ -z "$ACCESS_TOKEN" ]; then
+                            echo "ERROR: Failed to obtain access token"
+                            exit 1
+                        fi
+                        # Ensure the file is created fresh (overwrite, not append)
+                        rm -f /kaniko/.docker/config.json
                         cat <<EOF > /kaniko/.docker/config.json
 {
   "auths": {
@@ -84,8 +90,10 @@ spec:
 }
 EOF
                         ls -l /kaniko/.docker/config.json # Debug: Verify file creation
-                        # Debug: Show config.json structure (redact auth value)
-                        jq . /kaniko/.docker/config.json
+                        # Debug: Show config.json structure (non-sensitive parts)
+                        grep -v auth /kaniko/.docker/config.json
+                        # Debug: Verify base64 decoding (non-sensitive check)
+                        grep auth /kaniko/.docker/config.json | grep -o '"auth":.*' | sed 's/"auth":"//;s/"//' | base64 -d | grep -q "_token:ya29" && echo "Base64 auth token format looks correct"
                     '''
                 }
                 container('kaniko') {
