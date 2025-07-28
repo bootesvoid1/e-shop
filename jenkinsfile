@@ -73,27 +73,19 @@ spec:
             steps {
                 container('gcloud') {
                     sh '''
+                        # Obtain token
                         ACCESS_TOKEN=$(gcloud auth print-access-token)
-                        if [ -z "$ACCESS_TOKEN" ]; then
-                            echo "ERROR: Failed to obtain access token"
-                            exit 1
-                        fi
-                        
-                        rm -f /kaniko/.docker/config.json
-                        cat <<EOF > /kaniko/.docker/config.json
+                        # Build Docker config
+                        mkdir -p /workspace/docker-config
+                        cat <<EOF > /workspace/docker-config/config.json
                         {
-                            "auths": {
-                                "${REGION}-docker.pkg.dev": {
-                                   "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
-                                      }
-                                        }
-                                         }
+                        "auths": {
+                            "'${REGION}'-docker.pkg.dev": {
+                            "auth": "$(echo -n "_token:$ACCESS_TOKEN" | base64 -w0)"
+                            }
+                        }
+                        }
                         EOF
-                        ls -l /kaniko/.docker/config.json # Debug: Verify file creation
-                        # Debug: Show config.json structure (non-sensitive parts)
-                        grep -v auth /kaniko/.docker/config.json
-                        # Debug: Verify base64 decoding (non-sensitive check)
-                        grep auth /kaniko/.docker/config.json | grep -o '"auth":.*' | sed 's/"auth":"//;s/"//' | base64 -d | grep -q "_token:ya29" && echo "Base64 auth token format looks correct"
                     '''
                 }
                 container('kaniko') {
@@ -111,14 +103,15 @@ spec:
                             def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                             sh """
                                 /kaniko/executor \
-                                  --context=. \
-                                  --dockerfile=${img.df} \
-                                  ${envVars} \
-                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                  --cache=true \
-                                  --cleanup \
-                                  --verbosity=info
+                                --context=. \
+                                --dockerfile=${img.df} \
+                                ${envVars} \
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
+                                --cache=true \
+                                --cleanup \
+                                --verbosity=info \
+                                --docker-config=/workspace/docker-config
                             """
                         }
                     }
