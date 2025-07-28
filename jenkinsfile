@@ -34,9 +34,6 @@ spec:
     volumeMounts:
     - name: workspace
       mountPath: /workspace
-  volumes:
-  - name: workspace
-    emptyDir: {}
   - name: snyk
     image: snyk/snyk-cli:docker
     command: ["sleep", "infinity"]
@@ -49,6 +46,9 @@ spec:
     volumeMounts:
     - name: workspace
       mountPath: /workspace
+  volumes:
+  - name: workspace
+    emptyDir: {}
 '''
         }
     }
