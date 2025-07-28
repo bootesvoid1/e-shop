@@ -122,9 +122,9 @@ spec:
                         }
                     }
                 }
-                        }
-                    }
-                }
+                        
+                    
+                
                 stage('ZAP') {
                     steps {
                         container('zap') {
