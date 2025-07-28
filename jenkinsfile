@@ -71,20 +71,6 @@ spec:
 
         stage('Build & Push') {
             steps {
-                container('gcloud') {
-                        sh """
-                            DOCKER_CONFIG=/workspace/docker-config \
-                            /kaniko/executor \
-                            --context=. \
-                            --dockerfile=${img.df} \
-                            ${envVars} \
-                            --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                            --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                            --cache=true \
-                            --cleanup \
-                            --verbosity=info
-                            """
-                }
                 container('kaniko') {
                     script {
                         def images = [
@@ -99,16 +85,30 @@ spec:
                         images.each { img ->
                             def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                             sh """
-                                /kaniko/executor \
-                                --context=. \
-                                --dockerfile=${img.df} \
-                                ${envVars} \
-                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                --cache=true \
-                                --cleanup \
-                                --verbosity=info \
-                                --docker-config=/workspace/docker-config
+                                # create the config inside the kaniko container
+                                ACCESS_TOKEN=\$(gcloud auth print-access-token)
+                                mkdir -p /workspace/docker-config
+                                cat > /workspace/docker-config/config.json <<EOF
+                                {
+                                "auths": {
+                                    "${REGION}-docker.pkg.dev": {
+                                    "auth": "\$(echo -n _token:\$ACCESS_TOKEN | base64 -w0)"
+                                    }
+                                }
+                                }
+                                EOF
+
+                                # run kaniko with the correct env var
+                                DOCKER_CONFIG=/workspace/docker-config \
+                                /kaniko/executor \\
+                                --context=. \\
+                                --dockerfile=${img.df} \\
+                                ${envVars} \\
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \\
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \\
+                                --cache=true \\
+                                --cleanup \\
+                                --verbosity=info
                             """
                         }
                     }
