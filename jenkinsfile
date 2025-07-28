@@ -54,8 +54,7 @@ spec:
     }
 
     stages {
-        stage('Checkout') {
-            
+        stage('Checkout') {            
             steps { checkout scm }
         }
 
@@ -119,7 +118,6 @@ spec:
     post {
         always  { echo "🧹 Cleaning up…" }
         success { echo "✅ All images pushed to Artifact Registry and deployed." }
-        failure { 
-                  echo "❌ Check logs above." }
+        failure { echo "❌ Check logs above." }
     }
 }
