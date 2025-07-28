@@ -41,7 +41,7 @@ spec:
     - name: workspace
       mountPath: /workspace
   - name: zap
-    image: owasp/zap2docker-stable:latest
+    image: zaproxy/zap-stable
     command: ["sleep", "infinity"]
     volumeMounts:
     - name: workspace
@@ -107,17 +107,21 @@ spec:
         }
         stage('Security Scans') {
             parallel {
-                stage('Snyk') {
+                stage('Security – Snyk') {
                     steps {
                         container('snyk') {
-                            withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
+                            withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
                                 sh '''
-                                    export GOOGLE_APPLICATION_CREDENTIALS=$GC_KEY
-                                    snyk auth $(gcloud auth print-access-token)
-                                    snyk test --severity-threshold=high --json-file-output=snyk.json || true
-                                    snyk container test ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/ecommerce-backend:${TAG} --json-file-output=snyk-container.json || true
+                                    # Application dependency scan
+                                    snyk test --severity-threshold=high --json-file-output=snyk-app.json || true
+                                    # Container scan (image must exist in registry)
+                                    snyk container test ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/ecommerce-backend:${TAG} \
+                                        --json-file-output=snyk-container.json || true
                                 '''
                             }
+                        }
+                    }
+                }
                         }
                     }
                 }
