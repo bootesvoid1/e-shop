@@ -71,24 +71,6 @@ spec:
 
         stage('Build & Push') {
             steps {
-                
-                container('gcloud') {
-                    sh '''
-                        mkdir -p /workspace/docker-config
-                        ACCESS_TOKEN=$(gcloud auth print-access-token)
-                        cat > /workspace/docker-config/config.json <<EOF
-                        {
-                        "auths": {
-                            "${REGION}-docker.pkg.dev": {
-                            "auth": "$(echo -n _token:$ACCESS_TOKEN | base64 -w0)"
-                            }
-                        }
-                        }
-                        EOF
-                    '''
-                }
-
-                
                 container('kaniko') {
                     script {
                         def images = [
