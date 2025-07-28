@@ -84,6 +84,8 @@ spec:
 }
 EOF
                         ls -l /kaniko/.docker/config.json # Debug: Verify file creation
+                        # Debug: Show config.json structure (redact auth value)
+                        jq . /kaniko/.docker/config.json
                     '''
                 }
                 container('kaniko') {
