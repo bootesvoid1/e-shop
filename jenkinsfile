@@ -69,10 +69,13 @@ spec:
         stage('Build & Push') {
             steps {
                 container('gcloud') {
-                    sh '''
-                        ACCESS_TOKEN=$(gcloud auth print-access-token)
-                        echo "{\"auths\":{\"${REGION}-docker.pkg.dev\":{\"auth\":\"$(echo -n '_token:${ACCESS_TOKEN}' | base64 -w0)\"}}}" > /kaniko/.docker/config.json
-                    '''
+                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
+                        sh '''
+                            export GOOGLE_APPLICATION_CREDENTIALS="$GC_KEY"
+                            gcloud auth configure-docker ${REGION}-docker.pkg.dev
+                            mv ~/.docker/config.json /kaniko/.docker/config.json
+                        '''
+                    }
                 }
                 container('kaniko') {
                     script {
@@ -89,14 +92,14 @@ spec:
                             def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
                             sh """
                                 /kaniko/executor \
-                                  --context=. \
-                                  --dockerfile=${img.df} \
-                                  ${envVars} \
-                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
-                                  --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
-                                  --cache=true \
-                                  --cleanup \
-                                  --verbosity=info
+                                --context=. \
+                                --dockerfile=${img.df} \
+                                ${envVars} \
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \
+                                --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
+                                --cache=true \
+                                --cleanup \
+                                --verbosity=info
                             """
                         }
                     }
