@@ -28,6 +28,8 @@ spec:
     volumeMounts:
     - name: workspace
       mountPath: /workspace
+    - name: docker-config
+      mountPath: /kaniko/.docker
   - name: gcloud
     image: google/cloud-sdk:latest
     command: ["sleep", "infinity"]
@@ -37,8 +39,12 @@ spec:
     volumeMounts:
     - name: workspace
       mountPath: /workspace
+    - name: docker-config
+      mountPath: /kaniko/.docker
   volumes:
   - name: workspace
+    emptyDir: {}
+  - name: docker-config
     emptyDir: {}
 '''
         }
@@ -64,7 +70,8 @@ spec:
             steps {
                 container('gcloud') {
                     sh '''
-                        gcloud auth application-default print-access-token > /workspace/kaniko-cred.json
+                        gcloud auth configure-docker ${REGION}-docker.pkg.dev
+                        mv ~/.docker/config.json /kaniko/.docker/config.json
                     '''
                 }
                 container('kaniko') {
@@ -89,8 +96,7 @@ spec:
                                   --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \
                                   --cache=true \
                                   --cleanup \
-                                  --verbosity=info \
-                                  --credential=/workspace/kaniko-cred.json
+                                  --verbosity=info
                             """
                         }
                     }
