@@ -70,8 +70,8 @@ spec:
             steps {
                 container('gcloud') {
                     sh '''
-                        gcloud auth configure-docker ${REGION}-docker.pkg.dev
-                        mv ~/.docker/config.json /kaniko/.docker/config.json
+                        ACCESS_TOKEN=$(gcloud auth print-access-token)
+                        echo "{\"auths\":{\"${REGION}-docker.pkg.dev\":{\"auth\":\"$(echo -n '_token:${ACCESS_TOKEN}' | base64 -w0)\"}}}" > /kaniko/.docker/config.json
                     '''
                 }
                 container('kaniko') {
