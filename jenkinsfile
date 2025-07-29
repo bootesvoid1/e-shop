@@ -152,24 +152,17 @@ spec:
                                     try {
                                         echo "🔍 Scanning ${service} container with Trivy..."
                                         
-                                        // Container vulnerability scan
+                                        // Display Trivy scan results directly in logs
                                         sh """
-                                            trivy image \\
-                                                --format json \\
-                                                --output /reports/trivy-${service}-container.json \\
-                                                --severity HIGH,CRITICAL \\
-                                                --exit-code 0 \\
-                                                ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
-                                        """
-                                        
-                                        // Generate human-readable report
-                                        sh """
+                                            echo "========================================"
+                                            echo "🔍 TRIVY CONTAINER SCAN: ${service}"
+                                            echo "========================================"
                                             trivy image \\
                                                 --format table \\
-                                                --output /reports/trivy-${service}-container.txt \\
                                                 --severity HIGH,CRITICAL \\
                                                 --exit-code 0 \\
                                                 ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
+                                            echo "========================================"
                                         """
                                         
                                         echo "✅ Completed Trivy scan for ${service}"
@@ -191,19 +184,31 @@ spec:
                                         try {
                                             echo "🔍 Running OWASP Dependency Check..."
                                             
-                                            // Scan Node.js services
+                                            // Run OWASP scan and display results
                                             sh """
+                                                echo "========================================"
+                                                echo "🔍 OWASP DEPENDENCY CHECK SCAN"
+                                                echo "========================================"
                                                 /usr/share/dependency-check/bin/dependency-check.sh \\
                                                     --scan /workspace/e-commerce-master \\
                                                     --scan /workspace/e-commerce-front-master \\
-                                                    --format JSON \\
-                                                    --format HTML \\
-                                                    --out /reports \\
+                                                    --format ALL \\
+                                                    --out /tmp/owasp-reports \\
                                                     --project "E-Commerce-NodeJS" \\
                                                     --failOnCVSS 7 \\
                                                     --exclude "**/*.git/**" \\
                                                     --exclude "**/node_modules/**" \\
                                                     --exclude "**/dist/**" || true
+                                                
+                                                echo "========================================"
+                                                echo "📊 OWASP DEPENDENCY CHECK SUMMARY"
+                                                echo "========================================"
+                                                if [ -f /tmp/owasp-reports/dependency-check-report.txt ]; then
+                                                    cat /tmp/owasp-reports/dependency-check-report.txt
+                                                else
+                                                    echo "No text report generated"
+                                                fi
+                                                echo "========================================"
                                             """
                                             
                                             echo "✅ Completed OWASP Dependency Check"
@@ -217,24 +222,20 @@ spec:
                                         try {
                                             echo "🔍 Running Python Safety check..."
                                             
-                                            // Install safety
-                                            sh 'pip install safety'
-                                            
-                                            // Check Python dependencies
                                             sh """
+                                                pip install safety
+                                                
+                                                echo "========================================"
+                                                echo "🔍 PYTHON SAFETY CHECK"
+                                                echo "========================================"
                                                 cd /workspace/recommendation-service
                                                 if [ -f requirements.txt ]; then
-                                                    safety check \\
-                                                        --json \\
-                                                        --output /reports/safety-python-report.json \\
-                                                        -r requirements.txt || true
-                                                    
-                                                    safety check \\
-                                                        --output /reports/safety-python-report.txt \\
-                                                        -r requirements.txt || true
+                                                    echo "Found requirements.txt, running safety check..."
+                                                    safety check -r requirements.txt || true
                                                 else
                                                     echo "No requirements.txt found for Python service"
                                                 fi
+                                                echo "========================================"
                                             """
                                             
                                             echo "✅ Completed Python Safety check"
@@ -256,12 +257,15 @@ spec:
                                             
                                             paths.each { pathInfo ->
                                                 sh """
+                                                    echo "========================================"
+                                                    echo "🔍 TRIVY FILESYSTEM SCAN: ${pathInfo.name}"
+                                                    echo "========================================"
                                                     trivy fs \\
-                                                        --format json \\
-                                                        --output /reports/trivy-fs-${pathInfo.name}.json \\
+                                                        --format table \\
                                                         --severity HIGH,CRITICAL \\
                                                         --exit-code 0 \\
                                                         /workspace/${pathInfo.path}
+                                                    echo "========================================"
                                                 """
                                             }
                                             
@@ -293,14 +297,28 @@ spec:
                                         echo "🔍 Running ZAP baseline scan on ${target.name}..."
                                         
                                         sh """
+                                            echo "========================================"
+                                            echo "🔍 ZAP BASELINE SCAN: ${target.name}"
+                                            echo "Target URL: ${target.url}"
+                                            echo "========================================"
                                             zap-baseline.py \\
                                                 -t ${target.url} \\
-                                                -r /zap/wrk/zap-${target.name}-report.html \\
-                                                -w /zap/wrk/zap-${target.name}-warnings.md \\
-                                                -J /zap/wrk/zap-${target.name}-report.json \\
+                                                -r /tmp/zap-${target.name}-report.html \\
+                                                -w /tmp/zap-${target.name}-warnings.md \\
+                                                -J /tmp/zap-${target.name}-report.json \\
                                                 -I \\
                                                 -d \\
                                                 -T 5 || true
+                                            
+                                            echo "========================================"
+                                            echo "📊 ZAP SCAN WARNINGS: ${target.name}"
+                                            echo "========================================"
+                                            if [ -f /tmp/zap-${target.name}-warnings.md ]; then
+                                                cat /tmp/zap-${target.name}-warnings.md
+                                            else
+                                                echo "No warnings file generated"
+                                            fi
+                                            echo "========================================"
                                         """
                                         
                                         echo "✅ Completed ZAP scan for ${target.name}"
@@ -318,52 +336,20 @@ spec:
         stage('Security Report Summary') {
             steps {
                 script {
-                    echo "📊 Security Scan Summary:"
-                    
-                    // Copy reports from containers to workspace for archiving
-                    container('trivy') {
-                        sh '''
-                            echo "=== Copying Trivy Reports ==="
-                            mkdir -p ${WORKSPACE}/security-reports/trivy
-                            cp /reports/trivy-* ${WORKSPACE}/security-reports/trivy/ 2>/dev/null || echo "No Trivy reports found"
-                        '''
-                    }
-                    
-                    container('dependency-check') {
-                        sh '''
-                            echo "=== Copying OWASP Dependency Check Reports ==="
-                            mkdir -p ${WORKSPACE}/security-reports/owasp
-                            cp /reports/dependency-check-report.* ${WORKSPACE}/security-reports/owasp/ 2>/dev/null || echo "No OWASP reports found"
-                        '''
-                    }
-                    
-                    container('safety') {
-                        sh '''
-                            echo "=== Copying Python Safety Reports ==="
-                            mkdir -p ${WORKSPACE}/security-reports/safety
-                            cp /reports/safety-* ${WORKSPACE}/security-reports/safety/ 2>/dev/null || echo "No Safety reports found"
-                        '''
-                    }
-                    
-                    container('zap') {
-                        sh '''
-                            echo "=== Copying ZAP Reports ==="
-                            mkdir -p ${WORKSPACE}/security-reports/zap
-                            cp /zap/wrk/zap-* ${WORKSPACE}/security-reports/zap/ 2>/dev/null || echo "No ZAP reports found"
-                        '''
-                    }
-                    
-                    // List all generated reports
-                    sh '''
-                        echo "=== Final Security Reports ==="
-                        find ${WORKSPACE}/security-reports -type f | sort || echo "No reports found"
-                    '''
-                }
-            }
-            post {
-                always {
-                    // Archive all security reports
-                    archiveArtifacts artifacts: 'security-reports/**/*', allowEmptyArchive: true
+                    echo """
+                    ========================================
+                    📊 SECURITY SCAN SUMMARY COMPLETE
+                    ========================================
+                    ✅ Trivy Container Scans: Complete
+                    ✅ Trivy Filesystem Scans: Complete  
+                    ✅ OWASP Dependency Check: Complete
+                    ✅ Python Safety Check: Complete
+                    ✅ OWASP ZAP Baseline Scans: Complete
+                    ========================================
+                    All security scan results are displayed above in the pipeline logs.
+                    Review the scan outputs for any HIGH or CRITICAL vulnerabilities.
+                    ========================================
+                    """
                 }
             }
         }
@@ -394,17 +380,19 @@ spec:
         always  { 
             echo "🧹 Cleaning up…"
             sh 'find /tmp -name "*security*" -type f -delete 2>/dev/null || true'
+            sh 'find /tmp -name "*zap*" -type f -delete 2>/dev/null || true'
+            sh 'find /tmp -name "*owasp*" -type f -delete 2>/dev/null || true'
         }
         success { 
             echo "✅ All images pushed to Artifact Registry and deployed."
-            echo "📊 Security scan reports available in Jenkins artifacts."
+            echo "📊 Security scan results displayed in pipeline logs above."
         }
         failure { 
             echo "❌ Pipeline failed. Check logs above."
             echo "🔍 Review security scan results for critical vulnerabilities."
         }
         unstable {
-            echo "⚠️ Pipeline completed with warnings. Check security scan results."
+            echo "⚠️ Pipeline completed with warnings. Check security scan results above."
         }
     }
 }
