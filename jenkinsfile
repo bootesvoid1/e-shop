@@ -100,7 +100,7 @@ spec:
             } 
         }
 
-        // 🔥 NEW: Test Backend Stage
+        //  NEW: Test Backend Stage
         stage('Test') {
             steps {
                 container('node') {
@@ -114,6 +114,8 @@ spec:
                             npm run test:e2e 
 
                         '''
+                        echo "🧹 Removing node_modules after tests..."
+                        sh 'rm -rf node_modules'
                     }
                 }
             }
