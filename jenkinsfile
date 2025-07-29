@@ -105,7 +105,7 @@ spec:
             steps {
                 container('node-test') {
                 sh '''
-                    cd /workspace
+                    cd /workspace/e-commerce-master
                     npm install -g pnpm
                     pnpm install --frozen-lockfile
                     pnpm run test
