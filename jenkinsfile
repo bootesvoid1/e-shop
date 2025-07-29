@@ -106,16 +106,12 @@ spec:
                 container('node') {
                     dir('e-commerce-master') {
                         
-                        echo "📦 Installing backend dependencies..."
-                        
-                        sh 'npm ci'
-                        sh'npm i pnpm'
-
+                        echo "📦 Installing backend dependencies..."                       
+                        sh 'npm install --legacy-peer-deps'              
                         echo "🧪 Running backend tests..."
-                        sh '''
-                            
-                            pnpm run test
-                            pnpm run test:e2e 
+                        sh '''                            
+                            npm run test
+                            npm run test:e2e 
 
                         '''
                     }
