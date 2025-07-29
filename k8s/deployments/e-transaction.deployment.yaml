@@ -53,7 +53,7 @@ spec:
               mountPath: /mnt/secrets-fetched
       containers:
         - name: transaction
-          image: gcr.io/e-shop-deploy/transaction-service:latest
+          image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/transaction-service:latest
           command: ["/bin/sh", "-c"]
           args:
             - |

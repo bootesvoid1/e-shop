@@ -73,7 +73,7 @@ spec:
      
       containers:
         - name: backend
-          image: gcr.io/e-shop-deploy/ecommerce-backend:latest
+          image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/ecommerce-backend:latest
           
           command: ["/bin/sh", "-c"]
           args:

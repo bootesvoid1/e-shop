@@ -53,7 +53,7 @@ spec:
               mountPath: /mnt/secrets-fetched
       containers:
         - name: product
-          image: gcr.io/e-shop-deploy/product-service:latest
+          image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/product-service:latest
           command: ["/bin/sh", "-c"]
           args:
             - |

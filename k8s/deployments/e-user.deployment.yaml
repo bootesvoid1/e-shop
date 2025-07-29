@@ -65,7 +65,7 @@ spec:
               mountPath: /mnt/secrets-fetched
       containers:
         - name: user
-          image: gcr.io/e-shop-deploy/user-service:latest # Use the new specific image
+          image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/user-service:latest
           command: ["/bin/sh", "-c"]
           args:
             - |

@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: gcr.io/e-shop-deploy/ecommerce-frontend:latest
+        image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/ecommerce-frontend:latest
         ports:
         - containerPort: 80
