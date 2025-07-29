@@ -390,6 +390,7 @@ spec:
                                 --zone=europe-west1-b --project=$PROJECT_ID
                             kubectl apply -f k8s/deployments/
                             kubectl apply -f k8s/services/
+                            kubectl apply -f k8s/configs/
                         '''
                     }
                 }
