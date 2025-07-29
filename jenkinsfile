@@ -355,11 +355,11 @@ spec:
         }
 
         stage('Deploy') {
-            when {
-                expression { 
-                    return currentBuild.currentResult != 'FAILURE'
-                }
-            }
+            // when {
+            //     expression { 
+            //         return currentBuild.currentResult != 'FAILURE'
+            //     }
+            // }
             steps {
                 container('gcloud') {
                     withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'KEY')]) {
