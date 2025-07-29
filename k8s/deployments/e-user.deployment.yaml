@@ -21,7 +21,7 @@ spec:
           image: google/cloud-sdk:alpine
           command: ['/bin/sh', '-c']
           env:
-            - name: DB_PASSWORD_SECRET_NAME
+            - name: DB_USER_NAME
               value: "ecommerce-db-password"
             - name: DB_CONNECTION_NAME_SECRET_NAME
               value: "ecommerce-db-connection-name"
@@ -85,15 +85,15 @@ spec:
             - name: secrets-script-volume
               mountPath: /mnt/secrets-fetched
           env:
-            # Database config (adjust as needed, user might not need direct DB access if it's an API)
+            
             - name: DB_HOST
-              value: "35.240.49.17" # Your Cloud SQL Public IP
+              value: "35.240.49.17" 
             - name: DB_PORT
               value: "3306"
             - name: DB_USERNAME
               value: "appuser"
-            - name: DB_NAME
-              value: "ecommercedb"
+            - name: DB_USER_NAME
+              value: ""
             # Secrets will be sourced from script
             - name: DB_PASSWORD
               value: ""
@@ -107,4 +107,6 @@ spec:
               value: ""
             - name: MAIL_PORT
               value: ""
+            # - name: DB_CONNECTION_NAME
+            #   value: ""
          

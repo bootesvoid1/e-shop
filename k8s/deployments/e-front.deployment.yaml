@@ -12,7 +12,6 @@ spec:
       labels:
         app: ecommerce-frontend
     spec:
-      serviceAccountName: ecommerce-backend-sa
       containers:
       - name: frontend
         image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/ecommerce-frontend:latest

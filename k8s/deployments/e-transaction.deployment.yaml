@@ -79,10 +79,12 @@ spec:
               value: "3306"
             - name: DB_USERNAME
               value: "appuser"
-            - name: DB_NAME
+            - name: DB_TRANSACTION_NAME
               value: "ecommercedb"
             - name: DB_PASSWORD
               value: ""
             - name: JWT_SECRET
               value: ""
+            # - name: DB_CONNECTION_NAME
+            #   value: ""
           # Add resource requests/limits and health checks

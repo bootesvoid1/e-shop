@@ -92,7 +92,11 @@ spec:
                 checkout scm 
             } 
         }
-
+        stage('Test') {
+            sh 'npm install -g pnpm'                        
+            sh 'pnpm run test'                        
+            sh 'pnpm run test:e2e'
+        }
         stage('Build & Push') {
             steps {
                 container('kaniko') {
