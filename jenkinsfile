@@ -102,13 +102,16 @@ spec:
             } 
         }
         stage('Test') {
-            steps{
-            sh '''
-            
-            npm install -g pnpm                      
-            pnpm run test                     
-            pnpm run test:e2e
-            '''
+            steps {
+                container('node-test') {
+                sh '''
+                    cd /workspace
+                    npm install -g pnpm
+                    pnpm install --frozen-lockfile
+                    pnpm run test
+                    pnpm run test:e2e
+                '''
+                }
             }
         }
         stage('Build & Push') {
