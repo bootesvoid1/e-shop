@@ -320,32 +320,50 @@ spec:
                 script {
                     echo "📊 Security Scan Summary:"
                     
+                    // Copy reports from containers to workspace for archiving
+                    container('trivy') {
+                        sh '''
+                            echo "=== Copying Trivy Reports ==="
+                            mkdir -p ${WORKSPACE}/security-reports/trivy
+                            cp /reports/trivy-* ${WORKSPACE}/security-reports/trivy/ 2>/dev/null || echo "No Trivy reports found"
+                        '''
+                    }
+                    
+                    container('dependency-check') {
+                        sh '''
+                            echo "=== Copying OWASP Dependency Check Reports ==="
+                            mkdir -p ${WORKSPACE}/security-reports/owasp
+                            cp /reports/dependency-check-report.* ${WORKSPACE}/security-reports/owasp/ 2>/dev/null || echo "No OWASP reports found"
+                        '''
+                    }
+                    
+                    container('safety') {
+                        sh '''
+                            echo "=== Copying Python Safety Reports ==="
+                            mkdir -p ${WORKSPACE}/security-reports/safety
+                            cp /reports/safety-* ${WORKSPACE}/security-reports/safety/ 2>/dev/null || echo "No Safety reports found"
+                        '''
+                    }
+                    
+                    container('zap') {
+                        sh '''
+                            echo "=== Copying ZAP Reports ==="
+                            mkdir -p ${WORKSPACE}/security-reports/zap
+                            cp /zap/wrk/zap-* ${WORKSPACE}/security-reports/zap/ 2>/dev/null || echo "No ZAP reports found"
+                        '''
+                    }
+                    
                     // List all generated reports
                     sh '''
-                        echo "=== Generated Security Reports ==="
-                        find /reports -name "*.json" -o -name "*.html" -o -name "*.txt" | sort
-                        
-                        echo ""
-                        echo "=== ZAP Reports ==="
-                        find /zap/wrk -name "*.html" -o -name "*.json" -o -name "*.md" | sort || true
+                        echo "=== Final Security Reports ==="
+                        find ${WORKSPACE}/security-reports -type f | sort || echo "No reports found"
                     '''
                 }
             }
             post {
                 always {
                     // Archive all security reports
-                    archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true
-                    archiveArtifacts artifacts: 'zap/wrk/**/*', allowEmptyArchive: true
-                    
-                    // You can add publishHTML for better report viewing
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: true,
-                        reportDir: 'reports',
-                        reportFiles: '*.html',
-                        reportName: 'Security Reports'
-                    ])
+                    archiveArtifacts artifacts: 'security-reports/**/*', allowEmptyArchive: true
                 }
             }
         }
