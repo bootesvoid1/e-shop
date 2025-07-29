@@ -67,20 +67,20 @@ spec:
     - name: security-reports
       mountPath: /zap/wrk
   - name: node-test
-   image: node:18-alpine
-   command: ["sleep", "infinity"]
-   resources:
-     requests: { memory: "1Gi", cpu: "500m" }
-     limits:   { memory: "2Gi", cpu: "1000m" }
-  volumeMounts:
-  - name: workspace
-    mountPath: /workspace
+    image: node:18-alpine
+    command: ["sleep", "infinity"]
+    resources:
+      requests: { memory: "1Gi", cpu: "500m" }
+      limits:   { memory: "2Gi", cpu: "1000m" }
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
   volumes:
   - name: workspace
     emptyDir: {}
   - name: security-reports
     emptyDir: {}
-'''
+    '''
         }
     }
 
