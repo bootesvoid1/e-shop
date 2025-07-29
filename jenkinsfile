@@ -101,7 +101,10 @@ spec:
 
     stages {
         stage('Checkout') { 
-            steps { 
+            steps {
+                sh''' 
+                ls -la /workspace
+                '''
                 checkout scm 
             } 
         }
