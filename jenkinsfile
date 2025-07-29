@@ -123,11 +123,11 @@ spec:
                                                 echo "🔍 OWASP DEPENDENCY CHECK SCAN"
                                                 echo "========================================"
                                                 /usr/share/dependency-check/bin/dependency-check.sh \\
-                                                    --scan /workspace/e-commerce-master \\
-                                                    --scan /workspace/e-commerce-front-master \\
+                                                    --scan /workspace/backend \\
+                                                    --scan /workspace/frontend \\
                                                     --format ALL \\
                                                     --out /tmp/owasp-reports \\
-                                                    --project "E-Commerce-NodeJS" \\
+                                                    --project "E-shop" \\
                                                     --failOnCVSS 7 \\
                                                     --exclude "**/*.git/**" \\
                                                     --exclude "**/node_modules/**" \\
@@ -183,9 +183,9 @@ spec:
                                             echo "🔍 Running Trivy filesystem scans..."
                                             
                                             def paths = [
-                                                [path: 'e-commerce-master', name: 'backend-services'],
-                                                [path: 'e-commerce-front-master', name: 'frontend'],
-                                                [path: 'recommendation-service', name: 'recommendation']
+                                                [path: 'workspace/backend', name: 'backend-services'],
+                                                [path: 'workspace/frontend', name: 'frontend'],
+                                                [path: 'workspacerecommendation-service', name: 'recommendation']
                                             ]
                                             
                                             paths.each { pathInfo ->
@@ -216,7 +216,7 @@ spec:
             steps {
                 container('node-test') {
                 sh '''
-                    cd /workspace/e-commerce-master
+                    cd /workspace/backend
                     npm install -g pnpm
                     pnpm install --frozen-lockfile
                     pnpm run test
