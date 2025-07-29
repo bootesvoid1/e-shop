@@ -12,6 +12,7 @@ spec:
       labels:
         app: recommendation-api
     spec:
+      serviceAccountName: ecommerce-backend-sa
       containers:
       - name: api
         image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/recommendation-api:latest

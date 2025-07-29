@@ -12,6 +12,7 @@ spec:
       labels:
         app: product-service
     spec:
+      serviceAccountName: ecommerce-backend-sa
       volumes:
         - name: secrets-script-volume
           emptyDir: {}

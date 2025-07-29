@@ -11,20 +11,41 @@ spec:
     metadata:
       labels:
         app: ecommerce-backend
-    spec:
-    
+    spec:      
+      serviceAccountName: ecommerce-backend-sa
+
       volumes:
         - name: secrets-script-volume
           emptyDir: {}
-    
+
       initContainers:
         - name: fetch-secrets
           image: google/cloud-sdk:alpine
-          command:
-            - '/bin/sh'
-            - '-c'
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              SCRIPT_PATH="/mnt/secrets-fetched/secrets.env"
+              echo "# Fetched secrets script" > "$SCRIPT_PATH"
+
+              fetch_secret() {
+                local secret_name=$1
+                local env_var_name=$2
+                echo "Fetching secret: $secret_name"
+                secret_value=$(gcloud secrets versions access latest --secret="$secret_name")
+                escaped_secret_value=$(printf '%s\n' "$secret_value" | sed "s/'/'\\\\''/g")
+                echo "export $env_var_name='$escaped_secret_value'" >> "$SCRIPT_PATH"
+              }
+
+              fetch_secret "$DB_PASSWORD_SECRET_NAME" "DB_PASSWORD"
+              fetch_secret "$MAIL_ADDRESS_SECRET_NAME" "MAIL_ADDRESS"
+              fetch_secret "$MAIL_PASSWORD_SECRET_NAME" "MAIL_PASSWORD"
+              fetch_secret "$MAIL_HOST_SECRET_NAME" "MAIL_HOST"
+              fetch_secret "$MAIL_PORT_SECRET_NAME" "MAIL_PORT"
+              fetch_secret "$JWT_SECRET_NAME" "JWT_SECRET"
+
+              echo "Secrets script created at $SCRIPT_PATH"
           env:
-           
             - name: DB_PASSWORD_SECRET_NAME
               value: "ecommerce-db-password"
             - name: MAIL_ADDRESS_SECRET_NAME
@@ -37,49 +58,17 @@ spec:
               value: "ecommerce-mail-port"
             - name: JWT_SECRET_NAME
               value: "ecommerce-jwt-secret"
-          args:
-            - |
-              set -eu # Exit on error, undefined var
-              SCRIPT_PATH="/mnt/secrets-fetched/secrets.env"
-              echo "# Fetched secrets script" > $SCRIPT_PATH
-
-              # Function to fetch secret and append to script
-              fetch_secret() {
-                local secret_name=$1
-                local env_var_name=$2
-                echo "Fetching secret: $secret_name"
-                # Fetch secret value
-                secret_value=$(gcloud secrets versions access latest --secret=$secret_name)
-                # Escape single quotes for shell safety
-                escaped_secret_value=$(printf '%s\n' "$secret_value" | sed "s/'/'\\\\''/g")
-                # Write export command to script
-                echo "export $env_var_name='$escaped_secret_value'" >> $SCRIPT_PATH
-              }
-
-              # Fetch all required secrets
-              fetch_secret "$DB_PASSWORD_SECRET_NAME" "DB_PASSWORD"
-              fetch_secret "$MAIL_ADDRESS_SECRET_NAME" "MAIL_ADDRESS"
-              fetch_secret "$MAIL_PASSWORD_SECRET_NAME" "MAIL_PASSWORD"
-              fetch_secret "$MAIL_HOST_SECRET_NAME" "MAIL_HOST"
-              fetch_secret "$MAIL_PORT_SECRET_NAME" "MAIL_PORT"
-              fetch_secret "$JWT_SECRET_NAME" "JWT_SECRET"
-
-              echo "Secrets script created at $SCRIPT_PATH"
-              # Optional: Print script content for debugging (remove in production)
-              # cat $SCRIPT_PATH
           volumeMounts:
             - name: secrets-script-volume
               mountPath: /mnt/secrets-fetched
-     
+
       containers:
         - name: backend
           image: europe-west1-docker.pkg.dev/e-shop-deploy/e-shop-repo/ecommerce-backend:latest
-          
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -eu
-              # Source the secrets script created by the init container
               if [ -f /mnt/secrets-fetched/secrets.env ]; then
                 echo "Sourcing secrets from /mnt/secrets-fetched/secrets.env"
                 . /mnt/secrets-fetched/secrets.env
@@ -87,37 +76,31 @@ spec:
                 echo "Error: Secrets script not found!" >&2
                 exit 1
               fi
-              # Execute the original application command
-              # Make sure this matches your actual start command in your Dockerfile
               exec node dist/apps/e-commerce/main
-          
           ports:
             - containerPort: 3000
-         
-          volumeMounts:
-            - name: secrets-script-volume
-              mountPath: /mnt/secrets-fetched
-          
           env:
-            
             - name: DB_HOST
-              value: "35.240.49.17" 
+              value: "35.240.49.17"
             - name: DB_PORT
-              value: "3306" 
+              value: "3306"
             - name: DB_USERNAME
               value: "root"
             - name: DB_NAME
-              value: "e-shop-user-db" 
-          
+              value: "e-shop-user-db"
+            # These will be populated by sourced secrets.env
             - name: DB_PASSWORD
-              value: "" 
+              value: ""
             - name: MAIL_ADDRESS
-              value: "" 
+              value: ""
             - name: MAIL_PASSWORD
-              value: "" 
+              value: ""
             - name: MAIL_HOST
-              value: "" 
+              value: ""
             - name: MAIL_PORT
-              value: "" 
+              value: ""
             - name: JWT_SECRET
-              value: "" 
+              value: ""
+          volumeMounts:
+            - name: secrets-script-volume
+              mountPath: /mnt/secrets-fetched
