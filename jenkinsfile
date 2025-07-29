@@ -67,7 +67,7 @@ spec:
     - name: security-reports
       mountPath: /zap/wrk
   - name: node
-    image: node:18
+    image: node:22.16.0
     command: ["sleep", "infinity"]
     resources:
       requests: { memory: "512Mi", cpu: "250m" }
@@ -101,7 +101,7 @@ spec:
         }
 
         // 🔥 NEW: Test Backend Stage
-        stage('Test Backend') {
+        stage('Test') {
             steps {
                 container('node') {
                     dir('e-commerce-master') {
@@ -110,7 +110,10 @@ spec:
 
                         echo "🧪 Running backend tests..."
                         sh '''
-                            npm test || npm run test
+                            npm install pnpm
+                            pnpm run test
+                            pnpm run test:e2e 
+
                         '''
                     }
                 }
