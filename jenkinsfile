@@ -34,20 +34,42 @@ spec:
     volumeMounts:
     - name: workspace
       mountPath: /workspace
-  - name: snyk
-    image: snyk/snyk-cli:docker
+  - name: trivy
+    image: aquasec/trivy:latest
     command: ["sleep", "infinity"]
     volumeMounts:
     - name: workspace
       mountPath: /workspace
+    - name: security-reports
+      mountPath: /reports
+  - name: dependency-check
+    image: owasp/dependency-check:latest
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    - name: security-reports
+      mountPath: /reports
+  - name: safety
+    image: python:3.9-slim
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    - name: security-reports
+      mountPath: /reports
   - name: zap
     image: zaproxy/zap-stable
     command: ["sleep", "infinity"]
     volumeMounts:
     - name: workspace
       mountPath: /workspace
+    - name: security-reports
+      mountPath: /zap/wrk
   volumes:
   - name: workspace
+    emptyDir: {}
+  - name: security-reports
     emptyDir: {}
 '''
         }
@@ -65,7 +87,11 @@ spec:
     }
 
     stages {
-        stage('Checkout') { steps { checkout scm } }
+        stage('Checkout') { 
+            steps { 
+                checkout scm 
+            } 
+        }
 
         stage('Build & Push') {
             steps {
@@ -97,7 +123,8 @@ spec:
                                       --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \\
                                       --cache=true \\
                                       --cleanup \\
-                                      --verbosity=info
+                                      --verbosity=info \\
+                                      ${envVars}
                                 """
                             }
                         }
@@ -105,45 +132,236 @@ spec:
                 }
             }
         }
+
         stage('Security Scans') {
             parallel {
-                stage('Security – Snyk') {
+                stage('Trivy Container Scans') {
                     steps {
-                        container('snyk') {
-                            withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                                sh '''
-                                    # Application dependency scan
-                                    snyk test --severity-threshold=high --json-file-output=snyk-app.json || true
-                                    # Container scan (image must exist in registry)
-                                    snyk container test ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/ecommerce-backend:${TAG} \
-                                        --json-file-output=snyk-container.json || true
-                                '''
+                        container('trivy') {
+                            script {
+                                def services = [
+                                    'ecommerce-backend',
+                                    'ecommerce-frontend', 
+                                    'recommendation-api',
+                                    'user-service',
+                                    'product-service',
+                                    'transaction-service'
+                                ]
+
+                                services.each { service ->
+                                    try {
+                                        echo "🔍 Scanning ${service} container with Trivy..."
+                                        
+                                        // Container vulnerability scan
+                                        sh """
+                                            trivy image \\
+                                                --format json \\
+                                                --output /reports/trivy-${service}-container.json \\
+                                                --severity HIGH,CRITICAL \\
+                                                --exit-code 0 \\
+                                                ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
+                                        """
+                                        
+                                        // Generate human-readable report
+                                        sh """
+                                            trivy image \\
+                                                --format table \\
+                                                --output /reports/trivy-${service}-container.txt \\
+                                                --severity HIGH,CRITICAL \\
+                                                --exit-code 0 \\
+                                                ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
+                                        """
+                                        
+                                        echo "✅ Completed Trivy scan for ${service}"
+                                    } catch (Exception e) {
+                                        echo "⚠️ Trivy scan failed for ${service}: ${e.getMessage()}"
+                                    }
+                                }
                             }
                         }
                     }
                 }
-                        
-                    
+
+                stage('Filesystem Vulnerability Scans') {
+                    steps {
+                        script {
+                            parallel([
+                                'OWASP Dependency Check': {
+                                    container('dependency-check') {
+                                        try {
+                                            echo "🔍 Running OWASP Dependency Check..."
+                                            
+                                            // Scan Node.js services
+                                            sh """
+                                                /usr/share/dependency-check/bin/dependency-check.sh \\
+                                                    --scan /workspace/e-commerce-master \\
+                                                    --scan /workspace/e-commerce-front-master \\
+                                                    --format JSON \\
+                                                    --format HTML \\
+                                                    --out /reports \\
+                                                    --project "E-Commerce-NodeJS" \\
+                                                    --failOnCVSS 7 \\
+                                                    --exclude "**/*.git/**" \\
+                                                    --exclude "**/node_modules/**" \\
+                                                    --exclude "**/dist/**" || true
+                                            """
+                                            
+                                            echo "✅ Completed OWASP Dependency Check"
+                                        } catch (Exception e) {
+                                            echo "⚠️ OWASP Dependency Check failed: ${e.getMessage()}"
+                                        }
+                                    }
+                                },
+                                'Python Safety Check': {
+                                    container('safety') {
+                                        try {
+                                            echo "🔍 Running Python Safety check..."
+                                            
+                                            // Install safety
+                                            sh 'pip install safety'
+                                            
+                                            // Check Python dependencies
+                                            sh """
+                                                cd /workspace/recommendation-service
+                                                if [ -f requirements.txt ]; then
+                                                    safety check \\
+                                                        --json \\
+                                                        --output /reports/safety-python-report.json \\
+                                                        -r requirements.txt || true
+                                                    
+                                                    safety check \\
+                                                        --output /reports/safety-python-report.txt \\
+                                                        -r requirements.txt || true
+                                                else
+                                                    echo "No requirements.txt found for Python service"
+                                                fi
+                                            """
+                                            
+                                            echo "✅ Completed Python Safety check"
+                                        } catch (Exception e) {
+                                            echo "⚠️ Python Safety check failed: ${e.getMessage()}"
+                                        }
+                                    }
+                                },
+                                'Trivy Filesystem Scan': {
+                                    container('trivy') {
+                                        try {
+                                            echo "🔍 Running Trivy filesystem scans..."
+                                            
+                                            def paths = [
+                                                [path: 'e-commerce-master', name: 'backend-services'],
+                                                [path: 'e-commerce-front-master', name: 'frontend'],
+                                                [path: 'recommendation-service', name: 'recommendation']
+                                            ]
+                                            
+                                            paths.each { pathInfo ->
+                                                sh """
+                                                    trivy fs \\
+                                                        --format json \\
+                                                        --output /reports/trivy-fs-${pathInfo.name}.json \\
+                                                        --severity HIGH,CRITICAL \\
+                                                        --exit-code 0 \\
+                                                        /workspace/${pathInfo.path}
+                                                """
+                                            }
+                                            
+                                            echo "✅ Completed Trivy filesystem scans"
+                                        } catch (Exception e) {
+                                            echo "⚠️ Trivy filesystem scan failed: ${e.getMessage()}"
+                                        }
+                                    }
+                                }
+                            ])
+                        }
+                    }
+                }
                 
-                stage('ZAP') {
+                stage('OWASP ZAP Security Scan') {
                     steps {
                         container('zap') {
-                            sh '''
-                                zap-baseline.py -t http://ecommerce-backend-service:80 \
-                                -r zap-report.html -I -w zap-warnings.md
-                            '''
+                            script {
+                                def zapTargets = [
+                                    [name: 'ecommerce-backend', url: 'http://ecommerce-backend-service:80'],
+                                    [name: 'user-service', url: 'http://user-service:3002'],
+                                    [name: 'product-service', url: 'http://product-service:3003'],
+                                    [name: 'transaction-service', url: 'http://transaction-service:3005'],
+                                    [name: 'recommendation-api', url: 'http://recommendation-service:8001']
+                                ]
+
+                                zapTargets.each { target ->
+                                    try {
+                                        echo "🔍 Running ZAP baseline scan on ${target.name}..."
+                                        
+                                        sh """
+                                            zap-baseline.py \\
+                                                -t ${target.url} \\
+                                                -r /zap/wrk/zap-${target.name}-report.html \\
+                                                -w /zap/wrk/zap-${target.name}-warnings.md \\
+                                                -J /zap/wrk/zap-${target.name}-report.json \\
+                                                -I \\
+                                                -d \\
+                                                -T 5 || true
+                                        """
+                                        
+                                        echo "✅ Completed ZAP scan for ${target.name}"
+                                    } catch (Exception e) {
+                                        echo "⚠️ ZAP scan failed for ${target.name}: ${e.getMessage()}"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+
+        stage('Security Report Summary') {
+            steps {
+                script {
+                    echo "📊 Security Scan Summary:"
+                    
+                    // List all generated reports
+                    sh '''
+                        echo "=== Generated Security Reports ==="
+                        find /reports -name "*.json" -o -name "*.html" -o -name "*.txt" | sort
+                        
+                        echo ""
+                        echo "=== ZAP Reports ==="
+                        find /zap/wrk -name "*.html" -o -name "*.json" -o -name "*.md" | sort || true
+                    '''
+                }
+            }
+            post {
+                always {
+                    // Archive all security reports
+                    archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'zap/wrk/**/*', allowEmptyArchive: true
+                    
+                    // You can add publishHTML for better report viewing
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: true,
+                        reportDir: 'reports',
+                        reportFiles: '*.html',
+                        reportName: 'Security Reports'
+                    ])
+                }
+            }
+        }
+
         stage('Deploy') {
+            when {
+                expression { 
+                    return currentBuild.currentResult != 'FAILURE'
+                }
+            }
             steps {
                 container('gcloud') {
                     withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'KEY')]) {
                         sh '''
                             gcloud auth activate-service-account --key-file="$KEY"
-                            gcloud container clusters get-credentials ecommerce-cluster-v2 \
+                            gcloud container clusters get-credentials ecommerce-cluster-v2 \\
                                 --zone=europe-west1-b --project=$PROJECT_ID
                             kubectl apply -f k8s/deployments/
                             kubectl apply -f k8s/services/
@@ -155,8 +373,20 @@ spec:
     }
 
     post {
-        always  { echo "🧹 Cleaning up…" }
-        success { echo "✅ All images pushed to Artifact Registry and deployed." }
-        failure { echo "❌ Check logs above." }
+        always  { 
+            echo "🧹 Cleaning up…"
+            sh 'find /tmp -name "*security*" -type f -delete 2>/dev/null || true'
+        }
+        success { 
+            echo "✅ All images pushed to Artifact Registry and deployed."
+            echo "📊 Security scan reports available in Jenkins artifacts."
+        }
+        failure { 
+            echo "❌ Pipeline failed. Check logs above."
+            echo "🔍 Review security scan results for critical vulnerabilities."
+        }
+        unstable {
+            echo "⚠️ Pipeline completed with warnings. Check security scan results."
+        }
     }
 }
