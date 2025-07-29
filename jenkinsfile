@@ -80,6 +80,15 @@ spec:
     emptyDir: {}
   - name: security-reports
     emptyDir: {}
+    spec:
+     volumes:
+        - name: workspace       
+          emptyDir: {}
+     containers:
+        - name: jnlp        
+          volumeMounts:
+            - name: workspace
+            mountPath: /workspace
     '''
         }
     }
