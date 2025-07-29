@@ -105,12 +105,15 @@ spec:
             steps {
                 container('node') {
                     dir('e-commerce-master') {
+                        
                         echo "📦 Installing backend dependencies..."
-                        sh 'npm ci --only=production=false'
+                        
+                        sh 'npm ci'
+                        sh'npm i pnpm'
 
                         echo "🧪 Running backend tests..."
                         sh '''
-                            npm install pnpm
+                            
                             pnpm run test
                             pnpm run test:e2e 
 
