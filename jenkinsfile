@@ -94,6 +94,10 @@ spec:
         DB_CART_NAME        = "e_shop_cart_db"
         DB_TRANSACTION_NAME = "e_shop_transaction_db"
     }
+    // triggers {
+    // githubPush()            
+    
+    // }   
 
     stages {
         stage('Checkout') { 
@@ -101,102 +105,7 @@ spec:
                 checkout scm 
             } 
         }
-        stage('Test') {
-            steps {
-                container('node-test') {
-                sh '''
-                    cd /workspace/e-commerce-master
-                    npm install -g pnpm
-                    pnpm install --frozen-lockfile
-                    pnpm run test
-                    pnpm run test:e2e
-                '''
-                }
-            }
-        }
-        stage('Build & Push') {
-            steps {
-                container('kaniko') {
-                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
-                        script {
-                            def images = [
-                                [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
-                                [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
-                                [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
-                                [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
-                                [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
-                                [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
-                            ]
-
-                            images.each { img ->
-                                def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
-                                sh """
-                                    export GOOGLE_APPLICATION_CREDENTIALS=\${GC_KEY}
-                                    /kaniko/executor \\
-                                      --context=. \\
-                                      --dockerfile=${img.df} \\
-                                      --ignore-path=node_modules \\
-                                      --ignore-path=.git \\
-                                      --ignore-path=*.log \\
-                                      --ignore-path=coverage \\
-                                      --ignore-path=dist \\
-                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \\
-                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \\
-                                      --cache=true \\
-                                      --cleanup \\
-                                      --verbosity=info \\
-                                      ${envVars}
-                                """
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Security Scans') {
-            parallel {
-                stage('Trivy Container Scans') {
-                    steps {
-                        container('trivy') {
-                            script {
-                                def services = [
-                                    'ecommerce-backend',
-                                    'ecommerce-frontend', 
-                                    'recommendation-api',
-                                    'user-service',
-                                    'product-service',
-                                    'transaction-service'
-                                ]
-
-                                services.each { service ->
-                                    try {
-                                        echo "🔍 Scanning ${service} container with Trivy..."
-                                        
-                                        // Display Trivy scan results directly in logs
-                                        sh """
-                                            echo "========================================"
-                                            echo "🔍 TRIVY CONTAINER SCAN: ${service}"
-                                            echo "========================================"
-                                            trivy image \\
-                                                --format table \\
-                                                --severity HIGH,CRITICAL \\
-                                                --exit-code 0 \\
-                                                ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
-                                            echo "========================================"
-                                        """
-                                        
-                                        echo "✅ Completed Trivy scan for ${service}"
-                                    } catch (Exception e) {
-                                        echo "⚠️ Trivy scan failed for ${service}: ${e.getMessage()}"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Filesystem Vulnerability Scans') {
+        stage('Filesystem Vulnerability Scans') {
                     steps {
                         script {
                             parallel([
@@ -300,9 +209,133 @@ spec:
                         }
                     }
                 }
+        stage('Test') {
+            steps {
+                container('node-test') {
+                sh '''
+                    cd /workspace/e-commerce-master
+                    npm install -g pnpm
+                    pnpm install --frozen-lockfile
+                    pnpm run test
+                    pnpm run test:e2e
+                '''
+                }
+            }
+        }
+        stage('Build & Push') {
+            steps {
+                container('kaniko') {
+                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'GC_KEY')]) {
+                        script {
+                            def images = [
+                                [df: 'e-commerce-master/Dockerfile.backend',        name: 'ecommerce-backend'],
+                                [df: 'e-commerce-front-master/dockerfile.frontend', name: 'ecommerce-frontend'],
+                                [df: 'recommendation-service/Dockerfile.recommendation', name: 'recommendation-api'],
+                                [df: 'e-commerce-master/Dockerfile.user',          name: 'user-service',       env: [ "DB_NAME=${DB_USER_NAME}" ]],
+                                [df: 'e-commerce-master/Dockerfile.product',       name: 'product-service',    env: [ "DB_NAME=${DB_PRODUCT_NAME}" ]],
+                                [df: 'e-commerce-master/Dockerfile.transaction',   name: 'transaction-service', env: [ "DB_NAME=${DB_TRANSACTION_NAME}" ]]
+                            ]
+
+                            images.each { img ->
+                                def envVars = img.env ? img.env.collect { k -> "--build-arg ${k}" }.join(' ') : ''
+                                sh """
+                                    export GOOGLE_APPLICATION_CREDENTIALS=\${GC_KEY}
+                                    /kaniko/executor \\
+                                      --context=. \\
+                                      --dockerfile=${img.df} \\
+                                      --ignore-path=node_modules \\
+                                      --ignore-path=.git \\
+                                      --ignore-path=*.log \\
+                                      --ignore-path=coverage \\
+                                      --ignore-path=dist \\
+                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:${TAG} \\
+                                      --destination=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${img.name}:latest \\
+                                      --cache=true \\
+                                      --cleanup \\
+                                      --verbosity=info \\
+                                      ${envVars}
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+             when {
+                 expression { 
+                     return currentBuild.currentResult != 'FAILURE'
+                 }
+             }
+            steps {
+                container('gcloud') {
+                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'KEY')]) {
+                        sh '''
+                            gcloud auth activate-service-account --key-file="$KEY"
+                            gcloud container clusters get-credentials ecommerce-cluster-v2 \\
+                                --zone=europe-west1-b --project=$PROJECT_ID
+                            kubectl apply -f k8s/deployments/
+                            kubectl apply -f k8s/services/
+                            kubectl apply -f k8s/configs/
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Security Scans') {
+            parallel {
+                stage('Trivy Container Scans') {
+                    steps {
+                        container('trivy') {
+                            script {
+                                def services = [
+                                    'ecommerce-backend',
+                                    'ecommerce-frontend', 
+                                    'recommendation-api',
+                                    'user-service',
+                                    'product-service',
+                                    'transaction-service'
+                                ]
+
+                                services.each { service ->
+                                    try {
+                                        echo "🔍 Scanning ${service} container with Trivy..."
+                                        
+                                        // Display Trivy scan results directly in logs
+                                        sh """
+                                            echo "========================================"
+                                            echo "🔍 TRIVY CONTAINER SCAN: ${service}"
+                                            echo "========================================"
+                                            trivy image \\
+                                                --format table \\
+                                                --severity HIGH,CRITICAL \\
+                                                --exit-code 0 \\
+                                                ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${service}:${TAG}
+                                            echo "========================================"
+                                        """
+                                        
+                                        echo "✅ Completed Trivy scan for ${service}"
+                                    } catch (Exception e) {
+                                        echo "⚠️ Trivy scan failed for ${service}: ${e.getMessage()}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                
                 
                 stage('OWASP ZAP Security Scan') {
                     steps {
+                        container('gcloud') {
+                            sh '''
+                                echo "⏳ Waiting for all pods to be ready..."
+                                kubectl wait --for=condition=ready pod \
+                                -l app.kubernetes.io/part-of=e-shop \
+                                --timeout=100s
+                            '''
+                        }
                         container('zap') {
                             script {
                                 def zapTargets = [
@@ -375,27 +408,7 @@ spec:
             }
         }
 
-        stage('Deploy') {
-            // when {
-            //     expression { 
-            //         return currentBuild.currentResult != 'FAILURE'
-            //     }
-            // }
-            steps {
-                container('gcloud') {
-                    withCredentials([file(credentialsId: 'gcp-sa-json', variable: 'KEY')]) {
-                        sh '''
-                            gcloud auth activate-service-account --key-file="$KEY"
-                            gcloud container clusters get-credentials ecommerce-cluster-v2 \\
-                                --zone=europe-west1-b --project=$PROJECT_ID
-                            kubectl apply -f k8s/deployments/
-                            kubectl apply -f k8s/services/
-                            kubectl apply -f k8s/configs/
-                        '''
-                    }
-                }
-            }
-        }
+        
     }
 
     post {
