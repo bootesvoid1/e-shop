@@ -93,11 +93,13 @@ spec:
             } 
         }
         stage('Test') {
+            steps{
             sh '''
             npm install -g pnpm                      
             pnpm run test                     
             pnpm run test:e2e
             '''
+            }
         }
         stage('Build & Push') {
             steps {
